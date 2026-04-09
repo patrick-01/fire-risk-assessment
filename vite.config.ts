@@ -20,5 +20,5 @@ export default defineConfig({
   ],
   // Hash-based routing so GitHub Pages / Netlify / Vercel all work with
   // no server-side redirect config required.
-  base: './',
+  base: '/fire-risk-assessment/',
 })
