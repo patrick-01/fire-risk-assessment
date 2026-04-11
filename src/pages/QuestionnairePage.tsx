@@ -26,9 +26,32 @@ import {
   shouldShowQuestion,
 } from '../engine/navigator'
 import { QUESTION_MAP } from '../data/schema/questions'
+import type { QuestionScope } from '../data/schema/questions'
 import type { AnswerValue, AnswerConfidence } from '../state/AppState'
 import QuestionCard from '../components/QuestionCard'
 import ProgressBar from '../components/ProgressBar'
+
+// ---------------------------------------------------------------------------
+// Scope badge
+// ---------------------------------------------------------------------------
+
+const SCOPE_LABELS: Record<QuestionScope, string> = {
+  building: 'Whole building',
+  ground:   'Ground floor flat',
+  upper:    'Upper flat',
+  common:   'Common parts',
+}
+
+function ScopeBadge({ scope }: { scope: QuestionScope }) {
+  return (
+    <div className={`scope-badge scope-badge--${scope}`} aria-label={`Currently assessing: ${SCOPE_LABELS[scope]}`}>
+      <span className="scope-badge__icon" aria-hidden="true">
+        {scope === 'ground' ? '🏠' : scope === 'upper' ? '🏢' : scope === 'common' ? '🚪' : '🏗️'}
+      </span>
+      <span className="scope-badge__label">Currently assessing: <strong>{SCOPE_LABELS[scope]}</strong></span>
+    </div>
+  )
+}
 
 export default function QuestionnairePage() {
   const { state, dispatch } = useAppContext()
@@ -214,6 +237,9 @@ export default function QuestionnairePage() {
           </div>
         </div>
       )}
+
+      {/* Scope badge — shows which part of the building is being assessed */}
+      {currentQuestion.scope && <ScopeBadge scope={currentQuestion.scope} />}
 
       {/* Question */}
       <QuestionCard

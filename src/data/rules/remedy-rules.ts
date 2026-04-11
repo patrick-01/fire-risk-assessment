@@ -44,14 +44,28 @@ import type { EscapeWindowStatus } from '../../state/AppState'
 // ---------------------------------------------------------------------------
 
 /** Increment when any rule is added, changed, or removed. */
-export const RULES_VERSION = '2026-04-v2' as const
-export const RULES_DATE = '2026-04-09' as const
+export const RULES_VERSION = '2026-04-v4' as const
+export const RULES_DATE = '2026-04-10' as const
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 export type RemedyTier = 'mandatory' | 'recommended' | 'advisory'
+
+/**
+ * The type of obligation the remedy represents.
+ *
+ * This is a separate dimension from `tier` (which controls report prominence).
+ * A legal requirement may still appear at different prominence depending on risk level.
+ * A LACORS recommendation may be high-priority in a high-risk property.
+ *
+ *   legal_requirement    — clear statutory obligation applying to the assessed property
+ *   lacors_recommendation — LACORS risk-assessment benchmark; expected by council/assessors
+ *                           but not a universal statutory minimum for every rented flat
+ *   advisory             — good practice, management action, or unresolved regulatory question
+ */
+export type LegalStatus = 'legal_requirement' | 'lacors_recommendation' | 'advisory'
 
 export type RemedyBasis =
   | 'mandatory-statutory'
@@ -129,6 +143,12 @@ export interface RemedyRule {
   id: string
   title: string
   tier: RemedyTier
+  /**
+   * The type of legal/regulatory obligation this rule represents.
+   * Distinct from tier: tier controls prominence in the report; legal_status controls
+   * how the item is labelled and framed (statutory requirement vs. benchmark vs. advice).
+   */
+  legal_status: LegalStatus
   basis: RemedyBasis[]
   /** Structured condition evaluated by remedyEngine.ts. */
   condition: ConditionExpr
@@ -185,6 +205,7 @@ export const REMEDY_RULES: RemedyRule[] = [
     id: 'R-G01',
     title: 'Annual gas safety inspection — required by law',
     tier: 'mandatory',
+    legal_status: 'legal_requirement',
     basis: ['mandatory-statutory'],
     condition: { type: 'leaf', question_id: 'G1', in_values: ['overdue'] },
     confidence: 'confirmed',
@@ -205,6 +226,7 @@ export const REMEDY_RULES: RemedyRule[] = [
     id: 'R-G02',
     title: 'Electrical Installation Condition Report (EICR) — required by law',
     tier: 'mandatory',
+    legal_status: 'legal_requirement',
     basis: ['mandatory-statutory'],
     condition: {
       type: 'or',
@@ -235,32 +257,41 @@ export const REMEDY_RULES: RemedyRule[] = [
 
   {
     id: 'R-E04',
-    title: 'Install fire detection immediately — no alarms currently present',
-    tier: 'recommended',
-    basis: ['LACORS-benchmark', 'council-confirmed'],
+    title: 'Install smoke alarms immediately — no alarms currently present',
+    tier: 'mandatory',
+    legal_status: 'legal_requirement',
+    basis: ['mandatory-statutory', 'LACORS-benchmark'],
     condition: { type: 'leaf', question_id: 'E1', in_values: ['none'] },
     confidence: 'confirmed',
     risk_basis:
-      'No fire detection equipment is present in the property. This is the single largest ' +
-      'fire safety gap identified: fire detection is a baseline requirement for all residential ' +
-      'properties and is particularly critical in multi-occupied buildings where a fire in one ' +
-      'flat may not be immediately apparent to occupants of another. LACORS Table C2 identifies ' +
-      'Grade D mains-wired alarms as the expected standard for this property type. The absence ' +
-      'of any alarms substantially increases the overall risk.',
+      'The Smoke and Carbon Monoxide Alarm (Amendment) Regulations 2022 require landlords ' +
+      'to install a smoke alarm on every storey of the property used as living accommodation, ' +
+      'and to ensure alarms are working at the start of each new tenancy. No alarms are ' +
+      'currently present. This is a statutory obligation applying to all privately rented ' +
+      'properties in England, regardless of HMO status. In addition, LACORS Table C2 identifies ' +
+      'Grade D mains-wired alarms as the expected standard for Section 257 HMOs. The complete ' +
+      'absence of any detection is the single largest fire safety gap that can be identified.',
     text:
-      'No fire alarms are present. A Grade D mains-wired fire detection system (with integral ' +
-      'battery backup) should be installed as a matter of urgency. In a communal-entrance ' +
-      'property, this includes a smoke alarm in the communal hallway, interlinked heat detectors ' +
-      'in each flat entrance lobby, and smoke alarms in living areas of each flat. ' +
-      'Works must be carried out by a qualified electrician.',
+      'No fire alarms are present. At minimum, a smoke alarm must be installed on every storey ' +
+      'used as living accommodation — this is required by law under the Smoke and Carbon Monoxide ' +
+      'Alarm (Amendment) Regulations 2022. For a Section 257 HMO, LACORS Table C2 specifies a ' +
+      'Grade D mains-wired system with integral battery backup, including a smoke alarm in the ' +
+      'communal hallway, interlinked heat detectors in each flat entrance lobby, and smoke alarms ' +
+      'in living areas. Works must be carried out by a qualified electrician.',
     applies_when_separate_entrance: true,
-    regulatory_refs: ['LACORS Table C2', 'LACORS Table C4', 'BS 5839-6:2019'],
+    regulatory_refs: [
+      'Smoke and Carbon Monoxide Alarm (Amendment) Regulations 2022',
+      'LACORS Table C2',
+      'LACORS Table C4',
+      'BS 5839-6:2019',
+    ],
   },
 
   {
     id: 'R-E01',
     title: 'Review and upgrade fire detection to Grade D mains-wired standard',
     tier: 'recommended',
+    legal_status: 'lacors_recommendation',
     basis: ['LACORS-benchmark', 'council-confirmed'],
     condition: {
       type: 'and',
@@ -301,6 +332,7 @@ export const REMEDY_RULES: RemedyRule[] = [
     id: 'R-E02',
     title: 'Install mains-wired smoke alarm in communal hallway or staircase',
     tier: 'recommended',
+    legal_status: 'lacors_recommendation',
     basis: ['council-confirmed', 'LACORS-benchmark'],
     condition: {
       type: 'and',
@@ -331,6 +363,7 @@ export const REMEDY_RULES: RemedyRule[] = [
     id: 'R-E03',
     title: 'Install mains-wired heat detector in entrance lobby of each flat',
     tier: 'recommended',
+    legal_status: 'lacors_recommendation',
     basis: ['council-confirmed', 'LACORS-benchmark'],
     condition: {
       type: 'and',
@@ -359,7 +392,8 @@ export const REMEDY_RULES: RemedyRule[] = [
   {
     id: 'R-E05',
     title: 'Establish regular alarm testing routine',
-    tier: 'recommended',
+    tier: 'advisory',
+    legal_status: 'advisory',
     basis: ['LACORS-benchmark'],
     condition: {
       type: 'leaf',
@@ -383,28 +417,72 @@ export const REMEDY_RULES: RemedyRule[] = [
 
   {
     id: 'R-E06',
-    title: 'Confirm alarm interlink — alarms currently not interlinked',
+    title: 'Interlink alarms within each flat — alarms currently not confirmed as interlinked within flats',
     tier: 'recommended',
+    legal_status: 'lacors_recommendation',
     basis: ['LACORS-benchmark'],
     condition: {
       type: 'and',
       conditions: [
         IS_SECTION_257,
-        { type: 'leaf', question_id: 'E6', in_values: ['no', 'partial', 'not_sure'] },
+        {
+          type: 'leaf',
+          question_id: 'E6a',
+          in_values: ['no', 'partial', 'not_yet_verified', 'not_sure'],
+        },
       ],
     },
     confidence: 'probable',
     risk_basis:
-      'Interlinked alarms ensure that when any one alarm activates, all alarms in the building ' +
-      'sound. In a two-flat converted building, a fire starting in one flat should alert ' +
-      'occupants of the other flat immediately. Non-interlinked alarms do not achieve this — ' +
-      'a ground-floor fire may not trigger the upper flat\'s alarm until the fire has progressed. ' +
-      'LACORS §18.6 addresses interlinking requirements for multi-occupied premises.',
+      'Within-flat interlinking ensures that when any one alarm activates inside a flat, all ' +
+      'other alarms in that same flat also sound — giving occupants in bedrooms the earliest ' +
+      'possible warning of a fire starting in another room. Non-interlinked alarms mean that ' +
+      'a fire starting in the kitchen may not trigger the bedroom alarm until the fire or smoke ' +
+      'reaches the bedroom itself. LACORS §18.6 addresses interlinking requirements for ' +
+      'multi-occupied premises. Grade D mains-wired systems (D1 or D2) support interlinking ' +
+      'readily; a qualified electrician can confirm or enable this.',
     text:
-      'Alarms in the building are not confirmed as interlinked. For a Section 257 HMO, ' +
-      'alarms should be interlinked so that all sound together when any single detector activates. ' +
-      'If the system is Grade D mains-wired, interlinking is straightforward. Seek advice from ' +
-      'a qualified electrician on how to achieve interlinking for the installed system.',
+      'Alarms within the flat are not confirmed as interlinked. For a Section 257 HMO, ' +
+      'alarms within each flat should be interlinked so that all sound together when any single ' +
+      'detector activates. This gives occupants in bedrooms immediate warning of a fire starting ' +
+      'in another room. If the system is Grade D mains-wired (D1 or D2), interlinking is ' +
+      'straightforward. Seek advice from a qualified electrician.',
+    applies_when_separate_entrance: true,
+    regulatory_refs: ['LACORS §18.6', 'BS 5839-6:2019 cl. 11.2'],
+  },
+
+  {
+    id: 'R-E06b',
+    title: 'Consider cross-flat alarm interlinking — regulatory position requires professional confirmation',
+    tier: 'advisory',
+    legal_status: 'advisory',
+    basis: ['advisory'],
+    condition: {
+      type: 'and',
+      conditions: [
+        IS_SECTION_257,
+        {
+          type: 'leaf',
+          question_id: 'E6b',
+          in_values: ['no', 'not_sure'],
+        },
+      ],
+    },
+    confidence: 'probable',
+    risk_basis:
+      'Whether alarms in separate self-contained flats — without a communal area — must be ' +
+      'interlinked between flats is a point of regulatory interpretation that has not been ' +
+      'definitively confirmed for this property type. In buildings with communal parts, ' +
+      'LACORS §18.6 clearly contemplates interlinking through the communal alarm. For ' +
+      'buildings with wholly separate entrances, the position is less clear. This advisory ' +
+      'item is raised so that the question can be put to a qualified fire risk assessor ' +
+      'or electrician rather than assumed either way.',
+    text:
+      'Cross-flat alarm interlinking — whether alarms in one flat trigger alarms in the other — ' +
+      'has not been confirmed. The regulatory requirement for cross-flat interlinking in buildings ' +
+      'without communal areas is not definitively established and requires professional judgement. ' +
+      'Raise this question with a qualified fire risk assessor or electrician when reviewing the ' +
+      'alarm installation.',
     applies_when_separate_entrance: true,
     regulatory_refs: ['LACORS §18.6'],
   },
@@ -417,6 +495,7 @@ export const REMEDY_RULES: RemedyRule[] = [
     id: 'R-F01',
     title: 'Fit self-closing devices to flat entrance door',
     tier: 'recommended',
+    legal_status: 'lacors_recommendation',
     basis: ['LACORS-benchmark'],
     condition: {
       type: 'leaf',
@@ -455,6 +534,7 @@ export const REMEDY_RULES: RemedyRule[] = [
     id: 'R-F02',
     title: 'Assess flat entrance door construction against escape route risk',
     tier: 'recommended',
+    legal_status: 'lacors_recommendation',
     basis: ['LACORS-benchmark'],
     condition: {
       type: 'and',
@@ -500,6 +580,7 @@ export const REMEDY_RULES: RemedyRule[] = [
     id: 'R-F03',
     title: 'Repair or replace flat entrance door — does not close or latch correctly',
     tier: 'recommended',
+    legal_status: 'lacors_recommendation',
     basis: ['LACORS-benchmark'],
     condition: { type: 'leaf', question_id: 'F3', in_values: ['no'] },
     confidence: 'confirmed',
@@ -520,6 +601,7 @@ export const REMEDY_RULES: RemedyRule[] = [
     id: 'R-F05',
     title: 'Remove or replace key-only locks that prevent exit from inside',
     tier: 'recommended',
+    legal_status: 'lacors_recommendation',
     basis: ['LACORS-benchmark'],
     condition: { type: 'leaf', question_id: 'F5', in_values: ['yes'] },
     confidence: 'confirmed',
@@ -541,6 +623,7 @@ export const REMEDY_RULES: RemedyRule[] = [
     id: 'R-F06',
     title: 'Fit or repair self-closer on communal front door',
     tier: 'recommended',
+    legal_status: 'lacors_recommendation',
     basis: ['LACORS-benchmark'],
     condition: {
       type: 'and',
@@ -572,6 +655,7 @@ export const REMEDY_RULES: RemedyRule[] = [
     id: 'R-D01-hardboard',
     title: 'Replace hardboard stair panelling with 12.5mm plasterboard',
     tier: 'recommended',
+    legal_status: 'lacors_recommendation',
     basis: ['LACORS-benchmark', 'council-confirmed'],
     condition: {
       type: 'and',
@@ -604,6 +688,7 @@ export const REMEDY_RULES: RemedyRule[] = [
     id: 'R-D01-9mm',
     title: 'Review stair panelling — 9mm plasterboard is below the §19.5 standard',
     tier: 'advisory',
+    legal_status: 'lacors_recommendation',
     basis: ['LACORS-benchmark'],
     condition: {
       type: 'and',
@@ -641,6 +726,7 @@ export const REMEDY_RULES: RemedyRule[] = [
     id: 'R-D01-unknown',
     title: 'Identify staircase panelling material — currently unknown',
     tier: 'advisory',
+    legal_status: 'advisory',
     basis: ['advisory'],
     condition: {
       type: 'and',
@@ -673,6 +759,7 @@ export const REMEDY_RULES: RemedyRule[] = [
     id: 'R-D02',
     title: 'Line staircase soffit with plasterboard',
     tier: 'recommended',
+    legal_status: 'lacors_recommendation',
     basis: ['LACORS-benchmark'],
     condition: {
       type: 'and',
@@ -700,6 +787,7 @@ export const REMEDY_RULES: RemedyRule[] = [
     id: 'R-D04',
     title: 'Seal gaps and penetrations through the staircase enclosure',
     tier: 'recommended',
+    legal_status: 'lacors_recommendation',
     basis: ['LACORS-benchmark'],
     condition: {
       type: 'and',
@@ -728,6 +816,7 @@ export const REMEDY_RULES: RemedyRule[] = [
     id: 'R-D05',
     title: 'Provide fire-resisting enclosure for cupboard or meter box in communal staircase',
     tier: 'recommended',
+    legal_status: 'lacors_recommendation',
     basis: ['LACORS-benchmark'],
     condition: {
       type: 'and',
@@ -756,6 +845,7 @@ export const REMEDY_RULES: RemedyRule[] = [
     id: 'R-D07',
     title: 'Assess floor/ceiling fire separation between the two flats',
     tier: 'recommended',
+    legal_status: 'lacors_recommendation',
     basis: ['LACORS-benchmark'],
     condition: {
       type: 'and',
@@ -789,7 +879,8 @@ export const REMEDY_RULES: RemedyRule[] = [
   {
     id: 'R-D09',
     title: 'Remove combustible materials and address ignition risks from communal areas',
-    tier: 'recommended',
+    tier: 'advisory',
+    legal_status: 'advisory',
     basis: ['LACORS-benchmark'],
     condition: {
       type: 'and',
@@ -839,6 +930,7 @@ export const REMEDY_RULES: RemedyRule[] = [
     id: 'R-C01',
     title: 'No qualifying bedroom escape window and no rear exit — assess escape route adequacy',
     tier: 'advisory',
+    legal_status: 'advisory',
     basis: ['LACORS-benchmark'],
     condition: {
       type: 'and',
@@ -871,6 +963,7 @@ export const REMEDY_RULES: RemedyRule[] = [
     id: 'R-C10',
     title: 'Inner room situation — bedroom accessible only through another habitable room',
     tier: 'advisory',
+    legal_status: 'advisory',
     basis: ['LACORS-benchmark'],
     condition: {
       type: 'and',
@@ -903,8 +996,9 @@ export const REMEDY_RULES: RemedyRule[] = [
 
   {
     id: 'R-G03',
-    title: 'Commission documented fire risk assessment for common parts',
-    tier: 'recommended',
+    title: 'Commission documented fire risk assessment for common parts — required by law',
+    tier: 'mandatory',
+    legal_status: 'legal_requirement',
     basis: ['mandatory-statutory', 'LACORS-benchmark'],
     condition: {
       type: 'and',
@@ -916,31 +1010,69 @@ export const REMEDY_RULES: RemedyRule[] = [
     confidence: 'confirmed',
     risk_basis:
       'The Regulatory Reform (Fire Safety) Order 2005 (Article 9) applies to the common parts ' +
-      'of multi-occupied residential buildings. The responsible person (typically the landlord ' +
-      'or managing agent) must carry out a suitable and sufficient fire risk assessment for the ' +
-      'common parts and implement appropriate fire safety measures. This is a legal obligation ' +
-      'for properties with communal areas, not merely a LACORS recommendation.',
+      'of multi-occupied residential buildings, regardless of whether the building is classified ' +
+      'as a Section 257 HMO. The responsible person — typically the landlord or managing agent ' +
+      '— must carry out a suitable and sufficient fire risk assessment for the common parts and ' +
+      'implement appropriate fire safety measures. This is a direct statutory obligation, not a ' +
+      'LACORS recommendation.',
     text:
       'No documented fire risk assessment for the common parts of the building is in place. ' +
-      'Under the Regulatory Reform (Fire Safety) Order 2005, a suitable and sufficient fire ' +
-      'risk assessment must be carried out by the responsible person. This should be documented, ' +
-      'kept up to date, and reviewed when any significant changes occur to the building or its ' +
-      'occupants. For a building of this type and risk level, a formal assessment by a competent ' +
-      'person is strongly recommended.',
+      'A fire risk assessment for the common parts is required by law under the Regulatory ' +
+      'Reform (Fire Safety) Order 2005 (Article 9). It must be carried out by the responsible ' +
+      'person, documented, kept up to date, and reviewed when any significant change occurs. ' +
+      'Commission a formal assessment by a competent person without delay.',
     risk_level_expressions: {
       elevated:
-        'A documented fire risk assessment for the common parts is a legal requirement and is ' +
+        'A documented fire risk assessment for the common parts is required by law and is ' +
         'particularly pressing at this overall risk level. Commission a formal assessment by a ' +
         'competent person promptly.',
       high:
-        'A formal fire risk assessment by a competent person is a legal requirement and should ' +
-        'be commissioned as an immediate priority given the overall risk level identified. ' +
+        'A formal fire risk assessment by a competent person is required by law and must be ' +
+        'commissioned as an immediate priority given the overall risk level identified. ' +
         'Do not wait for remedial works to be completed before commissioning the assessment.',
     },
     applies_when_separate_entrance: false,
     regulatory_refs: [
       'Regulatory Reform (Fire Safety) Order 2005, Article 9',
       'LACORS §5',
+    ],
+  },
+
+  // =========================================================================
+  // G — Carbon monoxide alarm (statutory — all rented properties)
+  // =========================================================================
+
+  {
+    id: 'R-G04',
+    title: 'Install carbon monoxide alarm — required by law',
+    tier: 'mandatory',
+    legal_status: 'legal_requirement',
+    basis: ['mandatory-statutory'],
+    condition: {
+      type: 'leaf',
+      question_id: 'G4',
+      in_values: ['no', 'not_sure'],
+    },
+    confidence: 'confirmed',
+    risk_basis:
+      'The Smoke and Carbon Monoxide Alarm (Amendment) Regulations 2022 require landlords ' +
+      'to install a carbon monoxide alarm in any room used as living accommodation that ' +
+      'contains a fixed combustion appliance, other than a gas cooker. This applies to all ' +
+      'privately rented properties in England and came into force on 1 October 2022. Fixed ' +
+      'combustion appliances include gas boilers, gas fires, oil boilers, and solid fuel ' +
+      'stoves or burners. Carbon monoxide is odourless and colourless; occupants cannot ' +
+      'detect a CO leak without an alarm.',
+    text:
+      'A carbon monoxide alarm must be installed in every room that contains a fixed combustion ' +
+      'appliance (other than a gas cooker). This is required by the Smoke and Carbon Monoxide ' +
+      'Alarm (Amendment) Regulations 2022, which apply to all privately rented properties in ' +
+      'England. Install a CO alarm conforming to BS EN 50291 in each affected room. Ensure the ' +
+      'alarm is working at the start of each new tenancy. Where the answer to question G4 was ' +
+      '"not sure", physically confirm whether a compliant CO alarm is in place.',
+    applies_when_separate_entrance: true,
+    regulatory_refs: [
+      'Smoke and Carbon Monoxide Alarm (Amendment) Regulations 2022',
+      'BS EN 50291',
     ],
   },
 ]

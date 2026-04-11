@@ -32,7 +32,7 @@ import {
   isShareLinkSupported,
 } from '../persistence/localStorageAdapter'
 import type { ActiveRemedy } from '../engine/remedyEngine'
-import type { UnresolvedFact, RiskDimensionSummary } from '../engine/reportGenerator'
+import type { UnresolvedFact, RiskDimensionSummary, PropertyTypeSummary } from '../engine/reportGenerator'
 
 type ShareStatus = 'idle' | 'copying' | 'copied' | 'too-large' | 'error' | 'unsupported'
 
@@ -146,6 +146,11 @@ export default function ReportPage() {
       </section>
 
       {/* ------------------------------------------------------------------ */}
+      {/* Property type and applicable framework                               */}
+      {/* ------------------------------------------------------------------ */}
+      <PropertyFrameworkSummary summary={report.property_type_summary} />
+
+      {/* ------------------------------------------------------------------ */}
       {/* Completeness indicator                                               */}
       {/* ------------------------------------------------------------------ */}
       {lowCompleteness && (
@@ -172,59 +177,60 @@ export default function ReportPage() {
       </section>
 
       {/* ------------------------------------------------------------------ */}
-      {/* Statutory obligations                                                */}
+      {/* Legal requirements                                                   */}
       {/* ------------------------------------------------------------------ */}
-      {report.mandatory_remedies.length > 0 && (
+      {report.legal_requirement_remedies.length > 0 && (
         <section className="report-section report-section--statutory">
-          <h2>Statutory Obligations — Required by Law</h2>
+          <h2>Legal Requirements</h2>
           <p className="tier-description">
-            The following items are direct legal requirements regardless of risk level or
-            property configuration.
+            The following items are direct statutory obligations. They apply to this property
+            regardless of risk level or HMO classification. Non-compliance may result in
+            enforcement action.
           </p>
-          <RemedyList remedies={report.mandatory_remedies} />
+          <RemedyList remedies={report.legal_requirement_remedies} />
         </section>
       )}
 
       {/* ------------------------------------------------------------------ */}
-      {/* Generally expected recommendations                                   */}
+      {/* LACORS / risk-based recommendations                                  */}
       {/* ------------------------------------------------------------------ */}
-      {report.recommended_remedies.length > 0 && (
+      {report.lacors_recommendation_remedies.length > 0 && (
         <section className="report-section">
-          <h2>Recommendations — Generally Expected</h2>
+          <h2>LACORS / Risk-Based Recommendations</h2>
           <p className="tier-description">
-            The following items are expected under LACORS guidance for this property type.
-            The strength of the recommendation reflects the overall risk level.
-            These are expressed as "should" or "strongly recommended" — not as definitive
-            legal requirements.
+            The following items are recommended based on LACORS fire safety guidance and
+            the assessed risk level for this property type. They are not universal statutory
+            minimums but reflect what the council and fire safety assessors expect for this
+            property configuration. The strength of each recommendation reflects the overall
+            risk level.
           </p>
-          <RemedyList remedies={report.recommended_remedies} />
+          <RemedyList remedies={report.lacors_recommendation_remedies} />
         </section>
       )}
 
       {/* ------------------------------------------------------------------ */}
-      {/* Advisory items                                                        */}
+      {/* Advisory / good practice                                             */}
       {/* ------------------------------------------------------------------ */}
       {report.advisory_items.length > 0 && (
         <section className="report-section">
-          <h2>Advisory Items — Verify or Investigate Further</h2>
+          <h2>Advisory / Good Practice</h2>
           <p className="tier-description">
-            These items require physical verification, professional input, or council
-            confirmation before any remedial works can be specified.
+            These items are good practice actions, management obligations, or points that
+            require physical verification, professional input, or council confirmation.
           </p>
           <RemedyList remedies={report.advisory_items} />
         </section>
       )}
 
       {/* No output at all */}
-      {report.mandatory_remedies.length === 0 &&
-        report.recommended_remedies.length === 0 &&
+      {report.legal_requirement_remedies.length === 0 &&
+        report.lacors_recommendation_remedies.length === 0 &&
         report.advisory_items.length === 0 && (
           <section className="report-section">
             <p className="report-no-remedies">
               No recommendations were triggered by the answers given. This may indicate that the
-              questionnaire is incomplete, that the property classification is unresolved, or
-              that the property is out of scope. Check the completeness score and classification
-              above.
+              questionnaire is incomplete or the property classification is unresolved. Check
+              the completeness score and classification above.
             </p>
           </section>
         )}
@@ -400,6 +406,12 @@ function RiskDimensionTable({ dimensions }: { dimensions: RiskDimensionSummary }
   )
 }
 
+const LEGAL_STATUS_LABELS: Record<string, string> = {
+  legal_requirement: 'Legal requirement',
+  lacors_recommendation: 'LACORS benchmark',
+  advisory: 'Advisory',
+}
+
 function RemedyList({ remedies }: { remedies: ActiveRemedy[] }) {
   return (
     <ul className="remedy-list">
@@ -407,6 +419,9 @@ function RemedyList({ remedies }: { remedies: ActiveRemedy[] }) {
         <li key={remedy.id} className={`remedy-item remedy-item--${remedy.confidence}`}>
           <div className="remedy-item__header">
             <span className="remedy-item__id">{remedy.id}</span>
+            <span className={`legal-status-badge legal-status-badge--${remedy.legal_status}`}>
+              {LEGAL_STATUS_LABELS[remedy.legal_status] ?? remedy.legal_status}
+            </span>
             <span className={`confidence-badge confidence-badge--${remedy.confidence}`}>
               {remedy.confidence}
             </span>
@@ -428,6 +443,32 @@ function RemedyList({ remedies }: { remedies: ActiveRemedy[] }) {
         </li>
       ))}
     </ul>
+  )
+}
+
+function PropertyFrameworkSummary({ summary }: { summary: PropertyTypeSummary }) {
+  return (
+    <section className="report-section report-section--framework">
+      <h2>Applicable Regulatory Framework</h2>
+      <dl className="framework-summary">
+        <dt>Property type</dt>
+        <dd>{summary.classification_label}</dd>
+        <dt>Common parts present</dt>
+        <dd>{summary.common_parts_present ? 'Yes' : 'No'}</dd>
+        <dt>Applicable statutory instruments</dt>
+        <dd>
+          <ul className="framework-summary__list">
+            {summary.applicable_legal_frameworks.map((f, i) => (
+              <li key={i}>{f}</li>
+            ))}
+          </ul>
+        </dd>
+        <dt>LACORS benchmark applied</dt>
+        <dd>{summary.lacors_benchmark_applied ? 'Yes' : 'No'}</dd>
+        <dt>How LACORS is used</dt>
+        <dd>{summary.lacors_application_note}</dd>
+      </dl>
+    </section>
   )
 }
 

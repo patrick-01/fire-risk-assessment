@@ -18,7 +18,7 @@ import type {
   RiskLevel,
 } from '../state/AppState'
 import type { ActiveRemedy } from './remedyEngine'
-import { groupRemediesByTier } from './remedyEngine'
+import { groupRemediesByLegalStatus } from './remedyEngine'
 import { RISK_FACTOR_DIMENSIONS } from './classifier'
 import { RULES_VERSION, RULES_DATE } from '../data/rules/remedy-rules'
 import { APP_VERSION } from '../state/AppState'
@@ -54,6 +54,26 @@ export interface RiskDimensionSummary {
   management: RiskDimensionStatus
 }
 
+/**
+ * Summary of the applicable regulatory framework for this specific property.
+ * Shown at the top of the report so readers understand what legal basis applies
+ * before reading the findings.
+ */
+export interface PropertyTypeSummary {
+  /** Plain-English label, e.g. "Section 257 HMO" or "Non-Section-257 rented property" */
+  classification_label: string
+  common_parts_present: boolean
+  /** Statutory instruments that apply to this property. */
+  applicable_legal_frameworks: string[]
+  /** True when LACORS is being used as a risk-assessment benchmark. */
+  lacors_benchmark_applied: boolean
+  /**
+   * Short note on how LACORS is being used — important for non-257 properties
+   * where LACORS is guidance only, not a directly applicable standard.
+   */
+  lacors_application_note: string
+}
+
 export interface Report {
   // Metadata
   generated_at: string // ISO 8601
@@ -70,6 +90,9 @@ export interface Report {
   classification_summary: string
   classification_basis: string
 
+  // Regulatory framework applicable to this property
+  property_type_summary: PropertyTypeSummary
+
   // Risk level (primary output)
   risk_level: RiskLevel
   risk_score: number
@@ -85,9 +108,9 @@ export interface Report {
   confirmed_facts: number
   total_applicable_facts: number
 
-  // Remedies grouped by tier
-  mandatory_remedies: ActiveRemedy[]
-  recommended_remedies: ActiveRemedy[]
+  // Remedies grouped by legal status (primary report grouping)
+  legal_requirement_remedies: ActiveRemedy[]
+  lacors_recommendation_remedies: ActiveRemedy[]
   advisory_items: ActiveRemedy[]
 
   // Facts requiring verification (§6.2)
@@ -119,7 +142,7 @@ export function generateReport(
   remedies: ActiveRemedy[],
   savedRulesVersion: string
 ): Report {
-  const { mandatory, recommended, advisory } = groupRemediesByTier(remedies)
+  const { legal_requirement, lacors_recommendation, advisory } = groupRemediesByLegalStatus(remedies)
   const answers: AnswerMap = assessment.answers
   const classification: Classification = assessment.classification
 
@@ -202,8 +225,10 @@ export function generateReport(
     confirmed_facts: confirmedFacts,
     total_applicable_facts: totalApplicable,
 
-    mandatory_remedies: mandatory,
-    recommended_remedies: recommended,
+    property_type_summary: buildPropertyTypeSummary(classification, answers),
+
+    legal_requirement_remedies: legal_requirement,
+    lacors_recommendation_remedies: lacors_recommendation,
     advisory_items: advisory,
 
     unresolved_facts: unresolvedFacts,
@@ -239,9 +264,88 @@ function formatAddress(assessment: Assessment): string {
   return parts.join(', ')
 }
 
+function buildPropertyTypeSummary(
+  c: Classification,
+  answers: AnswerMap
+): PropertyTypeSummary {
+  const isHmo = c.type === 'section-257-hmo' || c.type === 'probable-section-257'
+  const isNotHmo = c.type === 'not-section-257'
+  const hasCommunal = c.communal_entrance === 'true'
+
+  // Always-applicable statutes for all privately rented properties
+  const frameworks: string[] = [
+    'Smoke and Carbon Monoxide Alarm (Amendment) Regulations 2022',
+    'Electrical Safety Standards in the Private Rented Sector (England) Regulations 2020',
+    'Gas Safety (Installation and Use) Regulations 1998',
+    'Housing Health and Safety Rating System (HHSRS) — Housing Act 2004',
+  ]
+
+  if (hasCommunal) {
+    frameworks.push('Regulatory Reform (Fire Safety) Order 2005 — common parts')
+  }
+
+  if (isHmo) {
+    frameworks.push('Housing Act 2004 s.257 — Section 257 HMO regime')
+  }
+
+  let classificationLabel: string
+  if (c.type === 'section-257-hmo') {
+    classificationLabel = 'Section 257 HMO (confirmed)'
+  } else if (c.type === 'probable-section-257') {
+    classificationLabel = 'Probable Section 257 HMO (one or more facts unconfirmed)'
+  } else if (c.type === 'not-section-257') {
+    classificationLabel = 'Non-Section-257 privately rented residential property'
+  } else {
+    classificationLabel = 'Classification unresolved — additional information required'
+  }
+
+  let lacorsNote: string
+  if (isNotHmo) {
+    lacorsNote =
+      'LACORS fire safety guidance is applied as a risk-assessment benchmark for this ' +
+      'property. LACORS expressly covers a range of residential premises beyond HMOs. For ' +
+      'non-Section-257 properties, items derived from LACORS are presented as recommendations ' +
+      'rather than legal requirements — the legal baseline is narrower and consists of the ' +
+      'statutes listed above.'
+  } else if (c.type === 'probable-section-257') {
+    lacorsNote =
+      'LACORS fire safety guidance for converted buildings is applied as the primary ' +
+      'risk-assessment benchmark. Because the Section 257 classification is probable rather ' +
+      'than confirmed, some LACORS-based recommendations carry probable rather than confirmed ' +
+      'confidence and may change if unconfirmed facts are resolved.'
+  } else if (c.type === 'unresolved') {
+    lacorsNote =
+      'The Section 257 classification is unresolved. LACORS-based recommendations are ' +
+      'suppressed until the classification is confirmed or probable. Statutory items apply ' +
+      'regardless of classification.'
+  } else {
+    lacorsNote =
+      'LACORS fire safety guidance for converted buildings applies as the primary risk-assessment ' +
+      'benchmark for this Section 257 HMO. The LACORS guidance is not a standalone statute but ' +
+      'informs what the council and fire safety assessors expect for this property type.'
+  }
+
+  // Suppress answers not yet answered
+  void answers
+
+  return {
+    classification_label: classificationLabel,
+    common_parts_present: hasCommunal,
+    applicable_legal_frameworks: frameworks,
+    lacors_benchmark_applied: true,
+    lacors_application_note: lacorsNote,
+  }
+}
+
 function buildClassificationSummary(c: Classification): string {
   if (c.type === 'not-section-257') {
-    return 'This property does not fall within the scope of this assessment tool.'
+    return (
+      'This property does not meet the criteria for a Section 257 HMO under the Housing ' +
+      'Act 2004. The assessment continues under the applicable statutory framework for ' +
+      'privately rented residential properties. LACORS fire safety guidance is applied as a ' +
+      'risk-assessment benchmark where relevant, but LACORS-based items are presented as ' +
+      'recommendations rather than legal requirements for this property type.'
+    )
   }
   if (c.type === 'unresolved') {
     return (
@@ -440,9 +544,12 @@ function buildAssumptions(classification: Classification, answers: AnswerMap): s
   }
 
   assumptions.push(
-    'All recommendations in this report use "should" or "generally expected" language for ' +
-      'LACORS guidance. Only items marked "Required by law" impose a direct statutory obligation. ' +
-      'The appropriate standard for this specific property must be confirmed by a competent person.'
+    'This report uses three categories: "Legal requirement" items reflect direct statutory ' +
+      'obligations; "LACORS / risk-based recommendation" items reflect what LACORS guidance and ' +
+      'council expectations indicate for this property type but are not universal statutory ' +
+      'minimums; "Advisory" items are good practice, management actions, or points requiring ' +
+      'professional confirmation. The appropriate standard for this specific property must be ' +
+      'confirmed by a competent person.'
   )
 
   return assumptions

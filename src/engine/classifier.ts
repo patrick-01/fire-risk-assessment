@@ -547,7 +547,8 @@ export function computeRiskFactors(
   if (H3 === 'no') add('RF-H03', 1)
 
   const H4 = answers['H4']?.value
-  if (H4 === 'minimal') add('RF-H04', 2)
+  if (H4 === 'none') add('RF-H04', 3)
+  else if (H4 === 'minimal') add('RF-H04', 2)
   else if (H4 === 'passive') add('RF-H04', 1)
 
   return { score, factors }

@@ -449,8 +449,8 @@ describe('computeRiskFactors — detection', () => {
     expect(factors).toContain('RF-E01')
   })
 
-  it('no detection factor for mains-wired alarms (E1=mains_wired)', () => {
-    const { factors } = computeRiskFactors({ E1: a('mains_wired') }, communalCtx)
+  it('no detection factor for Grade D1 mains-wired alarms (E1=d1)', () => {
+    const { factors } = computeRiskFactors({ E1: a('d1') }, communalCtx)
     expect(factors).not.toContain('RF-E01')
     expect(factors).not.toContain('RF-E04')
   })

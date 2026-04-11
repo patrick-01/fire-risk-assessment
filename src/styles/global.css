@@ -171,6 +171,20 @@ fieldset { border: none; }
 .confidence-badge--not_sure  { background: #fff3e0; color: #e65100; }
 .confidence-badge--unknown   { background: #f3e5f5; color: #6a1b9a; }
 
+/* --- Legal status badge --------------------------------- */
+.legal-status-badge { display: inline-block; padding: .1rem .5rem; border-radius: 3px; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
+.legal-status-badge--legal_requirement   { background: #ffebee; color: #b71c1c; border: 1px solid #e53935; }
+.legal-status-badge--lacors_recommendation { background: #e3f2fd; color: #0d47a1; border: 1px solid #1976d2; }
+.legal-status-badge--advisory            { background: #f3e5f5; color: #4a148c; border: 1px solid #7b1fa2; }
+
+/* --- Property framework summary ------------------------- */
+.report-section--framework { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 1.25rem 1.5rem; }
+.framework-summary { display: grid; grid-template-columns: 10rem 1fr; gap: .5rem 1rem; margin: 0; }
+.framework-summary dt { font-weight: 600; color: #495057; font-size: .875rem; padding-top: .125rem; }
+.framework-summary dd { margin: 0; font-size: .9rem; color: #212529; }
+.framework-summary__list { margin: 0; padding-left: 1.25rem; }
+.framework-summary__list li { margin-bottom: .2rem; }
+
 /* --- Checkbox options (multi-choice questions) ---------- */
 .checkbox-option {
   display: flex; align-items: flex-start; gap: .5rem;
@@ -316,6 +330,35 @@ fieldset { border: none; }
 
 /* --- Import error -------------------------------------- */
 .import-error { color: var(--color-danger); font-size: .875rem; margin-bottom: .5rem; }
+
+/* --- Scope badge --------------------------------------- */
+.scope-badge {
+  display: inline-flex; align-items: center; gap: .4rem;
+  padding: .35rem .75rem;
+  border-radius: var(--radius);
+  font-size: .8rem; font-weight: 500;
+  margin-bottom: .75rem;
+  border-left: 3px solid transparent;
+}
+.scope-badge__icon { font-size: 1rem; }
+.scope-badge__label strong { font-weight: 700; }
+
+/* Ground floor — warm amber */
+.scope-badge--ground {
+  background: #fff3e0; border-left-color: #e65100; color: #bf360c;
+}
+/* Upper flat — cool blue */
+.scope-badge--upper {
+  background: #e3f2fd; border-left-color: #1565c0; color: #0d47a1;
+}
+/* Common parts — teal */
+.scope-badge--common {
+  background: #e0f2f1; border-left-color: #00695c; color: #004d40;
+}
+/* Building — neutral grey */
+.scope-badge--building {
+  background: var(--color-surface); border-left-color: var(--color-text-muted); color: var(--color-text-muted);
+}
 
 /* --- Cookie consent overlay ---------------------------- */
 .consent-overlay {

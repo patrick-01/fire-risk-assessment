@@ -27,6 +27,7 @@ import {
   type ConditionExpr,
   type RemedyTier,
   type RemedyBasis,
+  type LegalStatus,
 } from '../data/rules/remedy-rules'
 
 // ---------------------------------------------------------------------------
@@ -37,6 +38,14 @@ export interface ActiveRemedy {
   id: string
   title: string
   tier: RemedyTier
+  /**
+   * The type of legal/regulatory obligation this remedy represents.
+   * Distinct from tier: tier controls report prominence; legal_status controls labelling.
+   *   legal_requirement    — direct statutory obligation
+   *   lacors_recommendation — LACORS risk-assessment benchmark
+   *   advisory             — good practice, management action, or unresolved question
+   */
+  legal_status: LegalStatus
   basis: RemedyBasis[]
   /** Effective confidence after uncertainty downgrade. */
   confidence: ConfidenceLevel
@@ -177,8 +186,9 @@ export function computeRemedies(
   answers: AnswerMap,
   classification: Classification
 ): ActiveRemedy[] {
-  // Do not generate remedies for properties explicitly outside scope.
-  if (classification.type === 'not-section-257') return []
+  // Note: not-section-257 properties still receive a full assessment.
+  // Statutory items (gas, EICR, CO alarms, smoke alarms) apply to all rented properties.
+  // LACORS-specific rules are gated by IS_SECTION_257 conditions in the rules themselves.
 
   const active: ActiveRemedy[] = []
 
@@ -188,9 +198,10 @@ export function computeRemedies(
       continue
     }
 
-    // When classification is unresolved, suppress non-advisory rules to avoid
-    // presenting mandatory or recommended remedies on an uncertain foundation.
-    if (classification.type === 'unresolved' && rule.tier !== 'advisory') {
+    // When classification is unresolved, suppress LACORS recommendations — we cannot
+    // determine which framework applies. Legal requirements and advisories still show:
+    // statutory obligations (gas, EICR, alarms) apply regardless of HMO classification.
+    if (classification.type === 'unresolved' && rule.legal_status === 'lacors_recommendation') {
       continue
     }
 
@@ -200,6 +211,7 @@ export function computeRemedies(
       id: rule.id,
       title: rule.title,
       tier: rule.tier,
+      legal_status: rule.legal_status,
       basis: rule.basis,
       confidence: effectiveConfidence(rule.confidence, classification.confidence),
       text: selectText(rule, classification.risk_level),
@@ -211,7 +223,7 @@ export function computeRemedies(
   return active
 }
 
-/** Group active remedies by tier for report rendering. */
+/** Group active remedies by tier for internal ordering. */
 export function groupRemediesByTier(remedies: ActiveRemedy[]): {
   mandatory: ActiveRemedy[]
   recommended: ActiveRemedy[]
@@ -221,5 +233,28 @@ export function groupRemediesByTier(remedies: ActiveRemedy[]): {
     mandatory: remedies.filter((r) => r.tier === 'mandatory'),
     recommended: remedies.filter((r) => r.tier === 'recommended'),
     advisory: remedies.filter((r) => r.tier === 'advisory'),
+  }
+}
+
+/**
+ * Group active remedies by legal status for report section rendering.
+ *
+ * The three sections map directly to the report's top-level grouping:
+ *   legal_requirement    — "Legal requirements"
+ *   lacors_recommendation — "LACORS / risk-based recommendations"
+ *   advisory             — "Advisory / good practice"
+ *
+ * Within each section, remedies retain their original order from REMEDY_RULES,
+ * which places higher-tier items first.
+ */
+export function groupRemediesByLegalStatus(remedies: ActiveRemedy[]): {
+  legal_requirement: ActiveRemedy[]
+  lacors_recommendation: ActiveRemedy[]
+  advisory: ActiveRemedy[]
+} {
+  return {
+    legal_requirement: remedies.filter((r) => r.legal_status === 'legal_requirement'),
+    lacors_recommendation: remedies.filter((r) => r.legal_status === 'lacors_recommendation'),
+    advisory: remedies.filter((r) => r.legal_status === 'advisory'),
   }
 }

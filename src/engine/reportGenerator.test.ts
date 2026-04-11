@@ -97,9 +97,12 @@ describe('generateReport — basic structure', () => {
     expect(typeof report.completeness_score).toBe('number')
     expect(typeof report.confirmed_facts).toBe('number')
     expect(typeof report.total_applicable_facts).toBe('number')
-    expect(Array.isArray(report.mandatory_remedies)).toBe(true)
-    expect(Array.isArray(report.recommended_remedies)).toBe(true)
+    expect(Array.isArray(report.legal_requirement_remedies)).toBe(true)
+    expect(Array.isArray(report.lacors_recommendation_remedies)).toBe(true)
     expect(Array.isArray(report.advisory_items)).toBe(true)
+    expect(report.property_type_summary).toBeDefined()
+    expect(typeof report.property_type_summary.classification_label).toBe('string')
+    expect(Array.isArray(report.property_type_summary.applicable_legal_frameworks)).toBe(true)
     expect(Array.isArray(report.unresolved_facts)).toBe(true)
     expect(Array.isArray(report.assumptions)).toBe(true)
     expect(report.disclaimer.title).toBeTruthy()
@@ -286,12 +289,14 @@ describe('generateReport — classification_summary', () => {
     expect(report.classification_summary).toContain('257')
   })
 
-  it('classification_summary mentions out-of-scope for not-section-257', () => {
+  it('classification_summary notes non-HMO classification for not-section-257', () => {
     const assessment = makeAssessment({
       classification: baseClassification({ type: 'not-section-257', risk_level: 'unresolved', risk_score: 0 }),
     })
     const report = generateReport(assessment, [], RULES_VERSION)
-    expect(report.classification_summary).toContain('scope')
+    // Should explain property is not a 257 HMO, not just say "out of scope"
+    expect(report.classification_summary).toContain('Section 257')
+    expect(report.classification_summary).toContain('privately rented')
   })
 })
 
@@ -415,7 +420,7 @@ describe('generateReport — risk stacking warning', () => {
 // ---------------------------------------------------------------------------
 
 describe('generateReport — remedies', () => {
-  it('mandatory remedies are populated when statutory rules fire', () => {
+  it('legal_requirement_remedies are populated when statutory rules fire', () => {
     const assessment = makeAssessment({
       answers: {
         ...makeAssessment().answers,
@@ -424,7 +429,15 @@ describe('generateReport — remedies', () => {
     })
     const remedies = computeRemedies(assessment.answers, assessment.classification)
     const report = generateReport(assessment, remedies, RULES_VERSION)
-    expect(report.mandatory_remedies.length).toBeGreaterThan(0)
-    expect(report.mandatory_remedies.some((r) => r.id === 'R-G01')).toBe(true)
+    expect(report.legal_requirement_remedies.length).toBeGreaterThan(0)
+    expect(report.legal_requirement_remedies.some((r) => r.id === 'R-G01')).toBe(true)
+  })
+
+  it('property_type_summary is populated correctly for a section-257-hmo', () => {
+    const assessment = makeAssessment()
+    const report = generateReport(assessment, [], RULES_VERSION)
+    expect(report.property_type_summary.classification_label).toContain('Section 257')
+    expect(report.property_type_summary.lacors_benchmark_applied).toBe(true)
+    expect(report.property_type_summary.applicable_legal_frameworks.length).toBeGreaterThan(0)
   })
 })

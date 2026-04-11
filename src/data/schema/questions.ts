@@ -59,6 +59,21 @@ export interface BranchCondition {
   negate?: boolean
 }
 
+/**
+ * Which part of the building this question addresses.
+ * Displayed as a contextual badge in the questionnaire UI so the user
+ * always knows which unit or area they are answering about.
+ *
+ *   'building' — the whole building (legal classification, structure)
+ *   'ground'   — the ground floor flat specifically
+ *   'upper'    — the upper flat specifically
+ *   'common'   — communal parts (shared staircase, entrance hall, etc.)
+ *
+ * Omit (undefined) for questions that apply equally to all units and where
+ * a badge would add no useful context.
+ */
+export type QuestionScope = 'building' | 'ground' | 'upper' | 'common'
+
 export interface Question {
   id: string
   section: SectionId
@@ -75,6 +90,12 @@ export interface Question {
   /** Whether a "Not sure" option is offered in addition to explicit options. */
   allow_not_sure?: boolean
   required: boolean
+  /**
+   * Which part of the building this question addresses.
+   * Rendered as a scope badge in the questionnaire UI.
+   * Omit for building-wide or cross-cutting questions.
+   */
+  scope?: QuestionScope
 }
 
 // ---------------------------------------------------------------------------
@@ -95,6 +116,7 @@ export const QUESTIONS: Question[] = [
       'Enter the address of the building (not the individual flat). ' +
       'The postcode must be in the London Borough of Richmond upon Thames.',
     required: true,
+    scope: 'building',
   },
   {
     id: 'P2',
@@ -104,8 +126,11 @@ export const QUESTIONS: Question[] = [
     text: 'Flat or unit reference (optional)',
     help_text:
       'e.g. Ground Floor, First Floor, Flat A/B, or a number. ' +
-      'Used as a label in the report only — not used in compliance logic.',
+      'Used as a label in the report only — not used in compliance logic. ' +
+      'Answer all questions based on the property as it exists today — not ' +
+      'planned future changes or works already arranged but not yet complete.',
     required: false,
+    scope: 'building',
   },
 
   // =========================================================================
@@ -129,11 +154,19 @@ export const QUESTIONS: Question[] = [
       {
         value: 'purpose-built',
         label: 'It was purpose-built as two or more maisonettes or flats',
+        triggers_out_of_scope: true,
+        out_of_scope_reason:
+          'Purpose-built maisonettes and flats do not fall under Section 257 of the ' +
+          'Housing Act 2004, which applies only to buildings converted from a single ' +
+          'dwelling. This tool is designed for converted properties only. For a purpose-built ' +
+          'block, contact Richmond Council Housing Enforcement or engage a qualified fire ' +
+          'risk assessor.',
       },
       { value: 'not_sure', label: "I don't know / not sure" },
     ],
     uncertainty_behaviour: 'BLOCK_CLASS',
     required: true,
+    scope: 'building',
   },
   {
     id: 'A2',
@@ -164,6 +197,7 @@ export const QUESTIONS: Question[] = [
     ],
     uncertainty_behaviour: 'BLOCK_CLASS',
     required: true,
+    scope: 'building',
   },
   {
     id: 'A3',
@@ -193,6 +227,7 @@ export const QUESTIONS: Question[] = [
       },
     ],
     required: true,
+    scope: 'building',
   },
   {
     id: 'A4',
@@ -230,6 +265,7 @@ export const QUESTIONS: Question[] = [
     ],
     uncertainty_behaviour: 'BLOCK_CLASS',
     required: true,
+    scope: 'building',
   },
   {
     id: 'A5',
@@ -254,6 +290,7 @@ export const QUESTIONS: Question[] = [
       },
     ],
     required: true,
+    scope: 'building',
   },
 
   // =========================================================================
@@ -274,6 +311,7 @@ export const QUESTIONS: Question[] = [
       { value: 'separate', label: 'No — each flat has its own separate entrance' },
     ],
     required: true,
+    scope: 'building',
   },
   {
     id: 'B2',
@@ -293,19 +331,25 @@ export const QUESTIONS: Question[] = [
       { value: 'no', label: 'No — staircase and front door only' },
     ],
     required: true,
+    scope: 'upper',
   },
   {
     id: 'B3',
     section: 'B',
     section_position: 3,
     type: 'single-choice',
-    text: 'Does the ground floor flat have a rear exit?',
-    help_text: 'A rear exit such as a back door opening to a garden or external space.',
+    text: 'Does the ground floor flat have a rear exit (back door to garden or outside space)?',
+    help_text:
+      'A direct rear exit — such as a back door opening to a garden or external space — ' +
+      'provides an alternative escape route for ground floor occupants if the main front ' +
+      'door is blocked. Where a qualifying rear exit exists, window-based escape criteria ' +
+      'carry less weight for the ground floor flat.',
     options: [
-      { value: 'yes', label: 'Yes' },
-      { value: 'no', label: 'No' },
+      { value: 'yes', label: 'Yes — back door or direct exit to garden / outside space' },
+      { value: 'no', label: 'No — front door only' },
     ],
     required: true,
+    scope: 'ground',
   },
   {
     id: 'B4',
@@ -314,7 +358,7 @@ export const QUESTIONS: Question[] = [
     type: 'single-choice',
     text: 'What is the approximate floor level of the upper flat above external ground?',
     help_text:
-      'This affects whether upper-floor windows can be used as escape windows. ' +
+      'This affects whether upper-floor windows can qualify as escape windows. ' +
       'LACORS §14 requires that a qualifying escape window must be at a floor level ' +
       'no higher than 4.5 metres above external ground. If not sure, answer "Not sure."',
     options: [
@@ -330,6 +374,7 @@ export const QUESTIONS: Question[] = [
     ],
     uncertainty_behaviour: 'CONSERVATIVE',
     required: true,
+    scope: 'upper',
   },
   {
     id: 'B5',
@@ -338,14 +383,16 @@ export const QUESTIONS: Question[] = [
     type: 'single-choice',
     text: 'Is the ground floor raised significantly above street or garden level?',
     help_text:
-      'For example, the entrance is up several steps. A raised ground floor affects ' +
-      'the effective height of upper-floor windows above external ground.',
+      'For example, the entrance is up several steps. A raised ground floor increases ' +
+      'the effective height of upper-floor windows above external ground, which affects ' +
+      'whether those windows qualify as escape openings.',
     options: [
       { value: 'no', label: 'No — roughly at ground level' },
       { value: 'yes', label: 'Yes — raised ground floor (several steps up to entrance)' },
       { value: 'not_sure', label: 'Not sure' },
     ],
     required: true,
+    scope: 'building',
   },
   {
     id: 'B6',
@@ -365,6 +412,7 @@ export const QUESTIONS: Question[] = [
       { value: 'not_sure', label: 'Not sure' },
     ],
     required: true,
+    scope: 'upper',
   },
   {
     id: 'B7',
@@ -375,13 +423,13 @@ export const QUESTIONS: Question[] = [
       'Is there direct access to outside from the foot of the main staircase without ' +
       'passing through any other room or door?',
     help_text:
-      'In the ideal escape route configuration, the front door opens directly from the ' +
+      'In the ideal escape route configuration, the building entrance door opens directly from the ' +
       'foot of the staircase to the street or garden. An intermediate room or a ' +
       'secondary locked door worsens the escape route.',
     options: [
       {
         value: 'yes',
-        label: 'Yes — front door opens directly to street or garden from foot of stairs',
+        label: 'Yes — building entrance door opens directly to street or garden from foot of stairs',
       },
       {
         value: 'no',
@@ -390,6 +438,7 @@ export const QUESTIONS: Question[] = [
       { value: 'not_sure', label: 'Not sure' },
     ],
     required: true,
+    scope: 'common',
   },
   {
     id: 'B8',
@@ -422,19 +471,22 @@ export const QUESTIONS: Question[] = [
     ],
     uncertainty_behaviour: 'CONSERVATIVE',
     required: true,
+    scope: 'upper',
   },
 
   // =========================================================================
   // Section C — Escape Routes
+  // (Questions C1–C14 relate to the upper flat. The ground floor flat's primary
+  // escape is via its front door and rear exit — assessed in Section B.)
   // =========================================================================
 
-  // --- Bedroom 1 ---
+  // --- Bedroom 1 (upper flat) ---
   {
     id: 'C1',
     section: 'C',
     section_position: 1,
     type: 'single-choice',
-    text: 'Does the main bedroom (bedroom 1) in the flat have a window that can be opened?',
+    text: 'Does the main bedroom (bedroom 1) in the upper flat have a window that can be opened?',
     help_text:
       'An openable window in a bedroom can serve as a means of escape or rescue if the ' +
       'main exit is blocked by fire. Answer "No" if the window is fixed (does not open) ' +
@@ -446,6 +498,7 @@ export const QUESTIONS: Question[] = [
     ],
     uncertainty_behaviour: 'CONSERVATIVE',
     required: true,
+    scope: 'upper',
   },
   {
     id: 'C2',
@@ -465,6 +518,7 @@ export const QUESTIONS: Question[] = [
     ],
     uncertainty_behaviour: 'CONSERVATIVE',
     required: true,
+    scope: 'upper',
   },
   {
     id: 'C3',
@@ -484,6 +538,7 @@ export const QUESTIONS: Question[] = [
     ],
     uncertainty_behaviour: 'CONSERVATIVE',
     required: true,
+    scope: 'upper',
   },
   {
     id: 'C4',
@@ -511,6 +566,7 @@ export const QUESTIONS: Question[] = [
     ],
     uncertainty_behaviour: 'CONSERVATIVE',
     required: true,
+    scope: 'upper',
   },
   {
     id: 'C5',
@@ -531,6 +587,7 @@ export const QUESTIONS: Question[] = [
     ],
     uncertainty_behaviour: 'CONSERVATIVE',
     required: true,
+    scope: 'upper',
   },
 
   // --- Second bedroom ---
@@ -545,6 +602,7 @@ export const QUESTIONS: Question[] = [
       { value: 'no', label: 'No — only one bedroom' },
     ],
     required: true,
+    scope: 'upper',
   },
   {
     id: 'C7',
@@ -560,6 +618,7 @@ export const QUESTIONS: Question[] = [
     ],
     uncertainty_behaviour: 'CONSERVATIVE',
     required: true,
+    scope: 'upper',
   },
   {
     id: 'C9a',
@@ -578,6 +637,7 @@ export const QUESTIONS: Question[] = [
     ],
     uncertainty_behaviour: 'CONSERVATIVE',
     required: true,
+    scope: 'upper',
   },
   {
     id: 'C9b',
@@ -596,6 +656,7 @@ export const QUESTIONS: Question[] = [
     ],
     uncertainty_behaviour: 'CONSERVATIVE',
     required: true,
+    scope: 'upper',
   },
   {
     id: 'C9c',
@@ -616,6 +677,7 @@ export const QUESTIONS: Question[] = [
     ],
     uncertainty_behaviour: 'CONSERVATIVE',
     required: true,
+    scope: 'upper',
   },
   {
     id: 'C9d',
@@ -636,6 +698,7 @@ export const QUESTIONS: Question[] = [
     ],
     uncertainty_behaviour: 'CONSERVATIVE',
     required: true,
+    scope: 'upper',
   },
   {
     id: 'C9e',
@@ -663,6 +726,7 @@ export const QUESTIONS: Question[] = [
     ],
     uncertainty_behaviour: 'CONSERVATIVE',
     required: true,
+    scope: 'upper',
   },
 
   // --- Inner rooms and escape route geometry ---
@@ -691,6 +755,7 @@ export const QUESTIONS: Question[] = [
     ],
     uncertainty_behaviour: 'DEFER',
     required: true,
+    scope: 'upper',
   },
 
   // --- Living room window ---
@@ -706,6 +771,7 @@ export const QUESTIONS: Question[] = [
       { value: 'not_sure', label: 'Not sure' },
     ],
     required: true,
+    scope: 'upper',
   },
   {
     id: 'C11a',
@@ -721,6 +787,7 @@ export const QUESTIONS: Question[] = [
     ],
     uncertainty_behaviour: 'CONSERVATIVE',
     required: true,
+    scope: 'upper',
   },
   {
     id: 'C11b',
@@ -736,6 +803,7 @@ export const QUESTIONS: Question[] = [
     ],
     uncertainty_behaviour: 'CONSERVATIVE',
     required: true,
+    scope: 'upper',
   },
   {
     id: 'C11c',
@@ -751,6 +819,7 @@ export const QUESTIONS: Question[] = [
     ],
     uncertainty_behaviour: 'CONSERVATIVE',
     required: true,
+    scope: 'upper',
   },
   {
     id: 'C11d',
@@ -768,6 +837,7 @@ export const QUESTIONS: Question[] = [
     ],
     uncertainty_behaviour: 'CONSERVATIVE',
     required: true,
+    scope: 'upper',
   },
 
   // --- Mobility and entrance type ---
@@ -790,6 +860,7 @@ export const QUESTIONS: Question[] = [
     ],
     uncertainty_behaviour: 'ADVISORY_ONLY',
     required: true,
+    scope: 'upper',
   },
   {
     id: 'C13',
@@ -812,6 +883,7 @@ export const QUESTIONS: Question[] = [
     ],
     uncertainty_behaviour: 'CONSERVATIVE',
     required: true,
+    scope: 'upper',
   },
   {
     id: 'C14',
@@ -838,6 +910,7 @@ export const QUESTIONS: Question[] = [
       { value: 'not_sure', label: 'Not sure' },
     ],
     required: true,
+    scope: 'upper',
   },
 
   // =========================================================================
@@ -871,6 +944,7 @@ export const QUESTIONS: Question[] = [
     ],
     uncertainty_behaviour: 'CONSERVATIVE',
     required: true,
+    scope: 'common',
   },
   {
     id: 'D2',
@@ -889,6 +963,7 @@ export const QUESTIONS: Question[] = [
     ],
     uncertainty_behaviour: 'CONSERVATIVE',
     required: true,
+    scope: 'common',
   },
   {
     id: 'D3',
@@ -904,6 +979,7 @@ export const QUESTIONS: Question[] = [
     ],
     uncertainty_behaviour: 'ADVISORY_ONLY',
     required: true,
+    scope: 'common',
   },
   {
     id: 'D4',
@@ -924,6 +1000,7 @@ export const QUESTIONS: Question[] = [
       { value: 'not_sure', label: 'Not sure' },
     ],
     required: true,
+    scope: 'common',
   },
   {
     id: 'D5',
@@ -947,6 +1024,7 @@ export const QUESTIONS: Question[] = [
       { value: 'not_sure', label: 'Not sure' },
     ],
     required: true,
+    scope: 'common',
   },
   {
     id: 'D6',
@@ -965,6 +1043,7 @@ export const QUESTIONS: Question[] = [
       { value: 'not_assessed', label: 'Not assessed' },
     ],
     required: true,
+    scope: 'common',
   },
   {
     id: 'D7',
@@ -995,6 +1074,7 @@ export const QUESTIONS: Question[] = [
     ],
     uncertainty_behaviour: 'CONSERVATIVE',
     required: true,
+    scope: 'common',
   },
   {
     id: 'D8',
@@ -1021,6 +1101,7 @@ export const QUESTIONS: Question[] = [
     ],
     uncertainty_behaviour: 'ADVISORY_ONLY',
     required: true,
+    scope: 'common',
   },
   {
     id: 'D9',
@@ -1052,6 +1133,7 @@ export const QUESTIONS: Question[] = [
       { value: 'not_sure', label: 'Not sure' },
     ],
     required: true,
+    scope: 'common',
   },
 
   // =========================================================================
@@ -1063,15 +1145,26 @@ export const QUESTIONS: Question[] = [
     section_position: 1,
     type: 'single-choice',
     text: 'What type of fire alarms are currently fitted in the building?',
+    help_text:
+      'Grade D1 — mains-wired with a sealed long-life lithium battery backup (no battery ' +
+      'replacement needed; typically a 10-year cell). Grade D2 — mains-wired with a ' +
+      'replaceable battery backup (requires periodic battery replacement). ' +
+      'Grade D1 is preferable as it removes dependency on battery maintenance. ' +
+      'Grade F — battery-only, no mains connection. Both D1 and D2 meet the basic ' +
+      'Grade D standard; Grade F does not.',
     options: [
-      { value: 'battery_only', label: 'Battery-only (Grade F) — no mains wiring' },
       {
-        value: 'mains_wired',
-        label: 'Mains-wired with integral battery backup (Grade D)',
+        value: 'd1',
+        label: 'Grade D1 — mains-wired with sealed long-life (lithium) battery backup',
       },
+      {
+        value: 'd2',
+        label: 'Grade D2 — mains-wired with replaceable battery backup',
+      },
+      { value: 'battery_only', label: 'Battery-only (Grade F) — no mains wiring' },
       { value: 'mixed', label: 'Mixed — some mains-wired, some battery-only' },
       { value: 'none', label: 'No alarms at all' },
-      { value: 'not_sure', label: 'Not sure' },
+      { value: 'not_sure', label: 'Not sure — alarm type not identified' },
     ],
     required: true,
   },
@@ -1127,6 +1220,7 @@ export const QUESTIONS: Question[] = [
       { value: 'not_sure', label: 'Not sure' },
     ],
     required: true,
+    scope: 'common',
   },
   {
     id: 'E5',
@@ -1144,25 +1238,60 @@ export const QUESTIONS: Question[] = [
       { value: 'not_sure', label: 'Not sure' },
     ],
     required: true,
+    scope: 'common',
   },
   {
-    id: 'E6',
+    id: 'E6a',
     section: 'E',
     section_position: 6,
     type: 'single-choice',
-    text: 'Are the alarms interlinked so that all trigger together when one activates?',
+    text:
+      'Within each flat, are the alarms interlinked so that if one alarm sounds, all ' +
+      'others in the same flat sound?',
+    help_text:
+      'Within-flat interlinking means that a smoke alarm in a bedroom will trigger the ' +
+      'kitchen heat detector and living room alarm at the same time, giving all occupants ' +
+      'of that flat the earliest possible warning. This can be verified by pressing the ' +
+      'test button on one alarm and confirming the others sound. ' +
+      'Note: testing may require two people — one to press the button, one to confirm ' +
+      'alarms sound in other rooms.',
     options: [
-      { value: 'yes', label: 'Yes — all alarm together when one triggers' },
-      { value: 'no', label: 'No — independent (each only sounds at its own location)' },
+      { value: 'yes', label: 'Yes — all alarms within each flat sound together' },
+      { value: 'no', label: 'No — alarms in each flat are independent' },
       { value: 'partial', label: 'Partially interlinked' },
+      { value: 'not_yet_verified', label: 'Not yet verified — testing not carried out' },
       { value: 'not_sure', label: 'Not sure' },
     ],
     required: true,
   },
   {
-    id: 'E7',
+    id: 'E6b',
     section: 'E',
     section_position: 7,
+    type: 'single-choice',
+    text:
+      'Are alarms in one flat interlinked with alarms in the other flat, or with any ' +
+      'alarm in the communal area?',
+    help_text:
+      'Cross-flat interlinking means a fire alarm in the ground floor flat would also ' +
+      'trigger the upper flat\'s alarms, and vice versa. ' +
+      'Note: whether cross-flat interlinking is required in buildings without communal ' +
+      'areas is a point of regulatory interpretation that has not been definitively ' +
+      'confirmed for this property type. This question is captured for information. ' +
+      'If in doubt, seek advice from a qualified electrician or fire risk assessor.',
+    options: [
+      { value: 'yes', label: 'Yes — alarms across both flats are interlinked' },
+      { value: 'communal_only', label: 'Only via a communal alarm — not directly between flats' },
+      { value: 'no', label: 'No — each flat\'s alarms are separate from the other flat' },
+      { value: 'not_sure', label: 'Not sure' },
+    ],
+    uncertainty_behaviour: 'ADVISORY_ONLY',
+    required: true,
+  },
+  {
+    id: 'E7',
+    section: 'E',
+    section_position: 8,
     type: 'single-choice',
     text: 'When were the fire alarms last tested?',
     options: [
@@ -1183,21 +1312,27 @@ export const QUESTIONS: Question[] = [
     section: 'F',
     section_position: 1,
     type: 'single-choice',
-    text: 'Is a functioning self-closing device fitted to the flat entrance door?',
+    text:
+      'Is a functioning self-closing device fitted to each flat\'s entrance door ' +
+      '(the door between the flat interior and the communal hallway or the street)?',
     help_text:
-      'LACORS §21.5 states that entrance doors to self-contained flats should be fitted ' +
-      'with self-closers. A self-closer ensures the door returns to a closed position ' +
-      'after use, limiting the spread of fire and smoke from the flat to the escape route.',
+      'LACORS §21.5 states that the entrance door to each self-contained flat should be ' +
+      'fitted with a self-closing device. The "flat entrance door" is the door that separates ' +
+      'the interior of the flat from the communal staircase or street — not an internal room ' +
+      'door within the flat, and not the building\'s front door. ' +
+      'A working self-closer pulls the door fully shut so the latch engages without ' +
+      'manual assistance. If a device is fitted but the door does not pull fully closed, ' +
+      'choose "Fitted but not functioning correctly."',
     options: [
       {
         value: 'functioning_self_closer',
-        label: 'Yes — a functioning self-closer is fitted and working',
+        label: 'Yes — a functioning self-closer is fitted and pulls the door fully closed',
       },
       {
         value: 'fitted_not_working',
-        label: 'Fitted but not functioning correctly',
+        label: 'Fitted but not functioning correctly — door does not pull fully shut',
       },
-      { value: 'not_fitted', label: 'No self-closer fitted' },
+      { value: 'not_fitted', label: 'No self-closing device fitted' },
       { value: 'not_sure', label: 'Not sure' },
     ],
     required: true,
@@ -1207,8 +1342,10 @@ export const QUESTIONS: Question[] = [
     section: 'F',
     section_position: 2,
     type: 'single-choice',
-    text: 'What type of door is the flat entrance door?',
+    text: 'What type of door is each flat\'s entrance door?',
     help_text:
+      'This refers to the door between each flat and the communal hallway (or street), ' +
+      'not the building\'s front door. ' +
       'A solid timber door of at least 44mm thickness provides some fire resistance. ' +
       'A hollow-core door provides minimal fire resistance. An FD30S fire doorset is ' +
       'specifically rated to resist fire for 30 minutes with seals fitted.',
@@ -1235,10 +1372,17 @@ export const QUESTIONS: Question[] = [
     section: 'F',
     section_position: 3,
     type: 'single-choice',
-    text: 'Does the flat entrance door close and latch properly without being forced?',
+    text:
+      'Does each flat\'s entrance door fit and latch properly when closed — ' +
+      'either by self-closer or manually?',
+    help_text:
+      'A door that does not fully close and latch cannot contain smoke or fire even ' +
+      'briefly. Check that the door sits flush in the frame and that the latch engages ' +
+      'without having to hold or force the door. This question is about the physical ' +
+      'fit and latch — not whether a self-closer is present.',
     options: [
-      { value: 'yes', label: 'Yes — closes and latches properly' },
-      { value: 'no', label: 'No — sticks, does not close flush, or does not latch' },
+      { value: 'yes', label: 'Yes — fits flush in frame and latches without force' },
+      { value: 'no', label: 'No — sticks, does not sit flush, or latch does not engage' },
       { value: 'not_sure', label: 'Not sure' },
     ],
     required: true,
@@ -1249,12 +1393,13 @@ export const QUESTIONS: Question[] = [
     section_position: 4,
     type: 'single-choice',
     text:
-      'Does the flat entrance door have intumescent seals and/or smoke seals around ' +
-      'the door edges?',
+      'Does each flat\'s entrance door have intumescent seals and/or smoke seals ' +
+      'around the door edges?',
     help_text:
-      'Intumescent seals expand in fire to seal the gap around the door. Smoke seals ' +
-      'reduce smoke ingress at lower temperatures. Both are part of the FD30S fire door ' +
-      'specification. If the door is not an FD30S, it is unlikely to have these fitted.',
+      'This refers to each flat\'s entrance door — the door between the flat and the ' +
+      'communal hallway. Intumescent seals expand in fire to seal the gap around the door. ' +
+      'Smoke seals reduce smoke ingress at lower temperatures. Both are part of the FD30S ' +
+      'fire door specification. A door that is not an FD30S is unlikely to have these.',
     options: [
       { value: 'both', label: 'Both intumescent seals and smoke seals fitted' },
       {
@@ -1272,20 +1417,26 @@ export const QUESTIONS: Question[] = [
     section_position: 5,
     type: 'single-choice',
     text:
-      'Are there any internal doors within the flat that are locked in a way that ' +
-      'requires a key to exit from the inside?',
+      'Does the flat entrance door, or any door on the escape route within the flat, ' +
+      'require a key to open from the inside?',
     help_text:
-      'Exit doors within the flat (such as doors to a hallway or the front door itself) ' +
-      'must be openable from the inside without a key to allow safe evacuation. A thumb ' +
-      'turn deadlock or nightlatch on the inside is acceptable; a key-only deadlock from ' +
-      'both sides is not.',
+      'Answer based on the lock currently fitted — not whether the door is habitually ' +
+      'left unlocked. A double-cylinder deadlock (key required from both sides) is a ' +
+      'safety risk: an occupant waking in a smoke-filled room must find a key to exit. ' +
+      'A thumb-turn on the inside, or a night-latch that opens with a knob from inside, ' +
+      'is acceptable. If in doubt, check by standing inside and trying to open the door ' +
+      'without a key.',
     options: [
-      { value: 'no', label: 'No — all doors can be opened from inside without a key' },
+      {
+        value: 'no',
+        label: 'No — the flat entrance door and all escape-route doors open from inside without a key',
+      },
       {
         value: 'yes',
-        label: 'Yes — one or more doors require a key to exit from inside',
+        label:
+          'Yes — the flat entrance door or an internal door requires a key to open from inside',
       },
-      { value: 'not_sure', label: 'Not sure' },
+      { value: 'not_sure', label: 'Not sure — lock type not checked' },
     ],
     required: true,
   },
@@ -1294,7 +1445,14 @@ export const QUESTIONS: Question[] = [
     section: 'F',
     section_position: 6,
     type: 'single-choice',
-    text: 'Does the communal front door have a self-closing device?',
+    text:
+      'Does the building entrance door (the shared front door giving access to the ' +
+      'communal staircase) have a self-closing device?',
+    help_text:
+      'The building entrance door is the main front door through which both flats are ' +
+      'accessed — not the individual flat entrance doors. A self-closer on the building ' +
+      'entrance door limits unauthorised access and prevents the door being left open, ' +
+      'which could allow smoke from outside to enter the communal escape route.',
     show_when: [{ when_question: 'B1', has_value: 'communal' }],
     options: [
       { value: 'yes', label: 'Yes — functioning self-closer fitted' },
@@ -1303,6 +1461,7 @@ export const QUESTIONS: Question[] = [
       { value: 'not_sure', label: 'Not sure' },
     ],
     required: true,
+    scope: 'common',
   },
 
   // =========================================================================
@@ -1372,6 +1531,44 @@ export const QUESTIONS: Question[] = [
       { value: 'not_sure', label: 'Not sure' },
     ],
     required: true,
+    scope: 'common',
+  },
+
+  {
+    id: 'G4',
+    section: 'G',
+    section_position: 4,
+    type: 'single-choice',
+    text:
+      'Does the property have a carbon monoxide (CO) alarm in every room that contains a ' +
+      'fixed combustion appliance (e.g. gas boiler, gas fire, oil boiler, solid fuel stove)?',
+    help_text:
+      'The Smoke and Carbon Monoxide Alarm (Amendment) Regulations 2022 require landlords to ' +
+      'install a CO alarm in any room used as living accommodation that contains a fixed ' +
+      'combustion appliance, other than a gas cooker. This applies to all privately rented ' +
+      'properties in England. If the property has no fixed combustion appliances (other than ' +
+      'a gas cooker), select the last option.',
+    options: [
+      {
+        value: 'yes',
+        label: 'Yes — CO alarm installed in every room with a combustion appliance',
+      },
+      {
+        value: 'no',
+        label: 'No — a combustion appliance is present without a CO alarm',
+      },
+      {
+        value: 'not_sure',
+        label: 'Not sure',
+      },
+      {
+        value: 'no_appliances',
+        label: 'No fixed combustion appliances in the property (other than a gas cooker)',
+      },
+    ],
+    uncertainty_behaviour: 'CONSERVATIVE',
+    required: true,
+    scope: 'building',
   },
 
   // =========================================================================
@@ -1382,20 +1579,21 @@ export const QUESTIONS: Question[] = [
     section: 'H',
     section_position: 1,
     type: 'single-choice',
-    text:
-      'Are the communal areas (if present) kept clear of combustible materials and ' +
-      'obstructions at all times?',
+    text: 'Is the communal staircase and entrance hall kept clear of combustible materials and obstructions?',
     help_text:
       'LACORS places significant weight on management quality as a risk factor. ' +
-      'A well-managed property with communal areas consistently kept clear reduces ' +
-      'the risk of a fire starting in or blocking the escape route.',
+      'The communal staircase is the primary escape route for the upper flat and a shared ' +
+      'route for both. Any combustible materials stored here increase both ignition risk ' +
+      'and the risk of blocking the only escape. Answer based on the current typical ' +
+      'condition — not a one-off clearance done recently.',
+    show_when: [{ when_question: 'B1', has_value: 'communal' }],
     options: [
-      { value: 'yes', label: 'Yes — consistently maintained clear' },
-      { value: 'mostly', label: 'Mostly, but occasional items left temporarily' },
-      { value: 'no', label: 'No — items regularly stored in communal areas' },
-      { value: 'not_applicable', label: 'Not applicable — no communal areas' },
+      { value: 'yes', label: 'Yes — consistently kept clear at all times' },
+      { value: 'mostly', label: 'Mostly — occasional items left temporarily' },
+      { value: 'no', label: 'No — items are regularly stored in the communal area' },
     ],
     required: true,
+    scope: 'common',
   },
   {
     id: 'H2',
@@ -1447,23 +1645,36 @@ export const QUESTIONS: Question[] = [
     section: 'H',
     section_position: 4,
     type: 'single-choice',
-    text: 'How would you describe the management engagement level for this property?',
+    text: 'How would you describe the landlord\'s maintenance and management regime for this property?',
     help_text:
-      'LACORS considers management quality as a genuine risk factor. Active management ' +
-      'reduces overall risk; minimal management increases it, particularly where physical ' +
-      'measures are borderline.',
+      'LACORS considers management quality a genuine risk factor. Active, documented management ' +
+      'reduces overall risk; minimal or absent management increases it, particularly where ' +
+      'physical measures are borderline. Answer based on the current actual practice — not ' +
+      'intended future improvements.',
     options: [
       {
         value: 'active',
-        label: 'Actively managed — regular visits, prompt response to maintenance issues',
+        label:
+          'Formal — documented maintenance schedule, regular visits, written records, ' +
+          'prompt response to issues',
       },
       {
         value: 'passive',
-        label: 'Passively managed — repairs addressed when reported, infrequent visits',
+        label:
+          'Regular informal — checks happen periodically and issues are addressed, ' +
+          'but without a documented schedule or written records',
       },
       {
         value: 'minimal',
-        label: 'Minimal management — tenant largely self-managing with limited landlord engagement',
+        label:
+          'Ad hoc — maintenance is addressed only when noticed or when tenants report ' +
+          'an issue; no proactive checking',
+      },
+      {
+        value: 'none',
+        label:
+          'None — no maintenance arrangement in place; property effectively self-managed ' +
+          'by tenants with no landlord oversight',
       },
     ],
     required: true,

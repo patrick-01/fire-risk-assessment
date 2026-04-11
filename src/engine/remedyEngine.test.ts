@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { computeRemedies, groupRemediesByTier } from './remedyEngine'
+import { computeRemedies, groupRemediesByTier, groupRemediesByLegalStatus } from './remedyEngine'
 import type { AnswerMap, Classification } from '../state/AppState'
 
 // ---------------------------------------------------------------------------
@@ -64,27 +64,52 @@ function separateEntranceClassification(): Classification {
 // ---------------------------------------------------------------------------
 
 describe('computeRemedies — not-section-257', () => {
-  it('returns empty array for not-section-257 properties', () => {
-    const remedies = computeRemedies({}, notSection257())
-    expect(remedies).toHaveLength(0)
+  it('still returns statutory remedies for not-section-257 properties', () => {
+    // Gas safety applies to all rented properties regardless of HMO classification
+    const answers: AnswerMap = { G1: a('overdue') }
+    const remedies = computeRemedies(answers, notSection257())
+    expect(remedies.some((r) => r.id === 'R-G01')).toBe(true)
+  })
+
+  it('still returns EICR remedy for not-section-257 properties', () => {
+    const answers: AnswerMap = { G2: a('overdue') }
+    const remedies = computeRemedies(answers, notSection257())
+    expect(remedies.some((r) => r.id === 'R-G02')).toBe(true)
+  })
+
+  it('does not return IS_SECTION_257-gated LACORS rules for not-section-257', () => {
+    // R-E01 requires IS_SECTION_257 — must not fire for non-HMO
+    const answers: AnswerMap = { E1: a('battery_only') }
+    const remedies = computeRemedies(answers, notSection257())
+    expect(remedies.some((r) => r.id === 'R-E01')).toBe(false)
+  })
+
+  it('legal_status on returned remedies is correct', () => {
+    const answers: AnswerMap = { G1: a('overdue') }
+    const remedies = computeRemedies(answers, notSection257())
+    const g01 = remedies.find((r) => r.id === 'R-G01')
+    expect(g01?.legal_status).toBe('legal_requirement')
   })
 })
 
 describe('computeRemedies — unresolved classification', () => {
-  it('suppresses mandatory and recommended remedies when unresolved', () => {
-    // With G1=overdue, R-G01 (mandatory) would normally fire
+  it('suppresses lacors_recommendation remedies when unresolved', () => {
+    // R-E01 is lacors_recommendation — must be suppressed when unresolved
+    const answers: AnswerMap = { E1: a('battery_only') }
+    const remedies = computeRemedies(answers, unresolvedClassification())
+    const lacors = remedies.filter((r) => r.legal_status === 'lacors_recommendation')
+    expect(lacors).toHaveLength(0)
+  })
+
+  it('does NOT suppress legal_requirement items when unresolved', () => {
+    // R-G01 is legal_requirement — statutory obligation regardless of classification
     const answers: AnswerMap = { G1: a('overdue') }
     const remedies = computeRemedies(answers, unresolvedClassification())
-    const mandatory = remedies.filter((r) => r.tier === 'mandatory')
-    const recommended = remedies.filter((r) => r.tier === 'recommended')
-    expect(mandatory).toHaveLength(0)
-    expect(recommended).toHaveLength(0)
+    expect(remedies.some((r) => r.id === 'R-G01')).toBe(true)
   })
 
   it('still includes advisory items when unresolved', () => {
-    // Advisory items should still appear — they don't depend on confirmed classification
     const remedies = computeRemedies({}, unresolvedClassification())
-    // May or may not have advisories without triggering answers — just check it doesn't crash
     expect(Array.isArray(remedies)).toBe(true)
   })
 })
@@ -154,8 +179,8 @@ describe('computeRemedies — detection remedies', () => {
     expect(remedies.some((r) => r.id === 'R-E04')).toBe(true)
   })
 
-  it('R-E04 does not fire when E1=mains_wired', () => {
-    const answers: AnswerMap = { E1: a('mains_wired') }
+  it('R-E04 does not fire when E1=d1 (Grade D1 mains-wired)', () => {
+    const answers: AnswerMap = { E1: a('d1') }
     const remedies = computeRemedies(answers, baseClassification())
     expect(remedies.some((r) => r.id === 'R-E04')).toBe(false)
   })
@@ -193,13 +218,14 @@ describe('computeRemedies — multi-choice answers', () => {
 // ---------------------------------------------------------------------------
 
 describe('computeRemedies — output shape', () => {
-  it('each active remedy has all required fields', () => {
+  it('each active remedy has all required fields including legal_status', () => {
     const answers: AnswerMap = { G1: a('overdue') }
     const remedies = computeRemedies(answers, baseClassification())
     for (const remedy of remedies) {
       expect(remedy.id).toBeTruthy()
       expect(remedy.title).toBeTruthy()
       expect(['mandatory', 'recommended', 'advisory']).toContain(remedy.tier)
+      expect(['legal_requirement', 'lacors_recommendation', 'advisory']).toContain(remedy.legal_status)
       expect(remedy.risk_basis).toBeTruthy()
       expect(remedy.text).toBeTruthy()
       expect(Array.isArray(remedy.regulatory_refs)).toBe(true)
@@ -259,8 +285,8 @@ describe('groupRemediesByTier', () => {
 
     // R-G01 is mandatory
     expect(mandatory.some((r) => r.id === 'R-G01')).toBe(true)
-    // R-E04 is recommended
-    expect(recommended.some((r) => r.id === 'R-E04')).toBe(true)
+    // R-E04 is now mandatory (promoted to legal_requirement, tier=mandatory)
+    expect(mandatory.some((r) => r.id === 'R-E04')).toBe(true)
 
     // All items in each group have the correct tier
     mandatory.forEach((r) => expect(r.tier).toBe('mandatory'))
@@ -272,6 +298,29 @@ describe('groupRemediesByTier', () => {
     const { mandatory, recommended, advisory } = groupRemediesByTier([])
     expect(mandatory).toHaveLength(0)
     expect(recommended).toHaveLength(0)
+    expect(advisory).toHaveLength(0)
+  })
+})
+
+describe('groupRemediesByLegalStatus', () => {
+  it('groups remedies correctly by legal_status', () => {
+    const answers: AnswerMap = { G1: a('overdue'), E1: a('none') }
+    const remedies = computeRemedies(answers, baseClassification())
+    const { legal_requirement, lacors_recommendation, advisory } = groupRemediesByLegalStatus(remedies)
+
+    // R-G01 and R-E04 are both legal_requirement
+    expect(legal_requirement.some((r) => r.id === 'R-G01')).toBe(true)
+    expect(legal_requirement.some((r) => r.id === 'R-E04')).toBe(true)
+
+    legal_requirement.forEach((r) => expect(r.legal_status).toBe('legal_requirement'))
+    lacors_recommendation.forEach((r) => expect(r.legal_status).toBe('lacors_recommendation'))
+    advisory.forEach((r) => expect(r.legal_status).toBe('advisory'))
+  })
+
+  it('returns empty arrays when no remedies', () => {
+    const { legal_requirement, lacors_recommendation, advisory } = groupRemediesByLegalStatus([])
+    expect(legal_requirement).toHaveLength(0)
+    expect(lacors_recommendation).toHaveLength(0)
     expect(advisory).toHaveLength(0)
   })
 })
