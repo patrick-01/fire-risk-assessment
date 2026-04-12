@@ -139,10 +139,11 @@ describe('classify — not-section-257 (criteria not met)', () => {
     expect(c.type).toBe('not-section-257')
   })
 
-  it('returns not-section-257 with risk_level=unresolved (out-of-scope scoring suppressed)', () => {
+  it('returns not-section-257 with a computed risk level (full risk scoring applies to non-257)', () => {
+    // Non-257 properties now receive full risk scoring — risk_level is no longer forced to 'unresolved'.
     const c = classify({ ...s257(), A1: a('purpose-built') })
-    expect(c.risk_level).toBe('unresolved')
-    expect(c.risk_score).toBe(0)
+    expect(c.risk_level).not.toBe('unresolved')
+    expect(c.risk_score).toBeGreaterThanOrEqual(0)
   })
 })
 
@@ -166,9 +167,13 @@ describe('classify — not-section-257 (out-of-scope)', () => {
     expect(c.type).toBe('not-section-257')
   })
 
-  it('A4=one_owner_occupied triggers out-of-scope → not-section-257', () => {
+  it('A4=one_owner_occupied produces probable-section-257 (50% owner occupation is below Schedule 14 two-thirds threshold)', () => {
+    // one_owner_occupied is no longer out-of-scope. One owner-occupied flat in a two-flat
+    // building = 50% owner occupation — below the two-thirds Schedule 14 exclusion threshold.
+    // All s257 criteria are met with reduced confidence → probable-section-257.
     const c = classify({ ...s257(), A4: a('one_owner_occupied') })
-    expect(c.type).toBe('not-section-257')
+    expect(c.type).toBe('probable-section-257')
+    expect(c.confidence).toBe('probable')
   })
 
   it('A4=social triggers out-of-scope → not-section-257', () => {
@@ -366,9 +371,11 @@ describe('classify — risk level thresholds', () => {
     expect(c.risk_level).toBe('low')
   })
 
-  it('returns unresolved risk for out-of-scope property', () => {
+  it('returns a computed risk level for out-of-scope (non-257) property — not forced to unresolved', () => {
+    // A5=no → not-section-257 (outside Richmond). Full risk scoring now applies.
     const c = classify({ ...s257(), A5: a('no') })
-    expect(c.risk_level).toBe('unresolved')
+    expect(c.type).toBe('not-section-257')
+    expect(c.risk_level).not.toBe('unresolved')
   })
 
   it('returns elevated risk (≥6) with several stacked factors', () => {

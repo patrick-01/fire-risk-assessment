@@ -34,6 +34,8 @@ function baseClassification(overrides: Partial<Classification> = {}): Classifica
     risk_level: 'normal',
     risk_score: 3,
     risk_factors_present: [],
+    ground_floor_escape_strategy: 'unknown',
+    upper_floor_escape_strategy: 'unknown',
     ...overrides,
   }
 }

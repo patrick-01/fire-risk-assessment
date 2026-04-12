@@ -30,7 +30,7 @@ import {
   saveAssessment,
   deleteAssessment,
   isStorageNearlyFull,
-  decodeAssessmentFromUrl,
+  decodeAssessmentFromUrlWithError,
 } from '../persistence/localStorageAdapter'
 
 // ---------------------------------------------------------------------------
@@ -61,8 +61,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const hash = window.location.hash
     if (hash.startsWith('#share=')) {
       const encoded = hash.slice('#share='.length)
-      decodeAssessmentFromUrl(encoded)
-        .then((assessment) => {
+      decodeAssessmentFromUrlWithError(encoded)
+        .then(({ assessment, error }) => {
           if (assessment) {
             dispatch({
               type: 'IMPORT_ASSESSMENT',
@@ -71,9 +71,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           } else {
             dispatch({
               type: 'SET_BANNER',
-              payload:
-                'The shared link could not be decoded. It may be corrupted, truncated, ' +
-                'or from an incompatible version of the tool.',
+              payload: error ??
+                'The shared link could not be decoded. It may be corrupted or truncated.',
             })
           }
         })

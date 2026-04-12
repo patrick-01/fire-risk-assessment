@@ -10,13 +10,15 @@
  *   - risk_basis — the fire safety reasoning behind the recommendation
  *
  * Remedies are suppressed when:
- *   - The classification is 'not-section-257' (property is out of scope)
  *   - applies_when_separate_entrance is false AND separate_entrance_mode is true
  *   - The condition evaluates to false
  *
- * Advisory-only remedies are still included when classification is 'unresolved'
- * or 'probable-section-257' — mandatory remedies are suppressed until the
- * classification is at least probable.
+ * Non-section-257 properties receive a full assessment — statutory items and
+ * applicable escape/management advisories are NOT suppressed.
+ *
+ * When classification is 'unresolved', LACORS recommendations are not fully
+ * suppressed — instead their confidence is downgraded to 'unresolved' and they
+ * are included as advisory-level items. Statutory obligations always show.
  *
  * This module has NO React, NO DOM, NO localStorage.
  */
@@ -97,7 +99,7 @@ function evaluateCondition(
 
     case 'classification': {
       const field = condition.field
-      // Handle nested fields and boolean fields
+      // Handle typed fields explicitly before the generic fallback
       let value: string
       if (field === 'separate_entrance_mode') {
         value = String(classification.separate_entrance_mode)
@@ -105,6 +107,10 @@ function evaluateCondition(
         value = classification.inner_room_present
       } else if (field === 'upper_flat_independent_exit') {
         value = classification.upper_flat_independent_exit
+      } else if (field === 'ground_floor_escape_strategy') {
+        value = classification.ground_floor_escape_strategy
+      } else if (field === 'upper_floor_escape_strategy') {
+        value = classification.upper_floor_escape_strategy
       } else {
         const raw = classification[field as keyof Classification]
         if (typeof raw === 'object' || Array.isArray(raw)) return false
@@ -198,14 +204,17 @@ export function computeRemedies(
       continue
     }
 
-    // When classification is unresolved, suppress LACORS recommendations — we cannot
-    // determine which framework applies. Legal requirements and advisories still show:
-    // statutory obligations (gas, EICR, alarms) apply regardless of HMO classification.
-    if (classification.type === 'unresolved' && rule.legal_status === 'lacors_recommendation') {
-      continue
-    }
-
     if (!evaluateCondition(rule.condition, answers, classification)) continue
+
+    // When classification is unresolved, LACORS recommendations cannot be confirmed
+    // against a specific framework. Rather than suppressing them entirely, downgrade
+    // their effective confidence to 'unresolved' so they appear as contingent items.
+    // Legal requirements and advisories are unaffected — statutory obligations apply
+    // regardless of HMO classification, and advisories are already uncertainty-flagged.
+    const baseConfidence =
+      classification.type === 'unresolved' && rule.legal_status === 'lacors_recommendation'
+        ? 'unresolved'
+        : rule.confidence
 
     active.push({
       id: rule.id,
@@ -213,7 +222,7 @@ export function computeRemedies(
       tier: rule.tier,
       legal_status: rule.legal_status,
       basis: rule.basis,
-      confidence: effectiveConfidence(rule.confidence, classification.confidence),
+      confidence: effectiveConfidence(baseConfidence, classification.confidence),
       text: selectText(rule, classification.risk_level),
       risk_basis: rule.risk_basis,
       regulatory_refs: rule.regulatory_refs,

@@ -12,10 +12,10 @@
 // ---------------------------------------------------------------------------
 
 /** Increment when the saved assessment JSON shape changes incompatibly. */
-export const SCHEMA_VERSION = '1.1' as const
+export const SCHEMA_VERSION = '1.2' as const
 
 /** Increment when the app code ships (set by build/CI). */
-export const APP_VERSION = '0.1.0' as const
+export const APP_VERSION = '0.3.0' as const
 
 // ---------------------------------------------------------------------------
 // Confidence and uncertainty
@@ -119,6 +119,22 @@ export interface Classification {
   risk_score: number
   /** IDs of risk factors that contributed to the score. */
   risk_factors_present: string[]
+  /**
+   * Minimum viable unit-aware escape model (schema v1.2).
+   *
+   * Ground floor: derived from B3 (rear exit) and B1 (communal vs separate entrance).
+   *   via_rear_exit   — rear exit confirmed (B3=yes)
+   *   front_door_only — no rear exit; primary escape is via own or communal front door
+   *   unknown         — B3 not answered or not sure
+   *
+   * Upper floor: derived from B2 (independent rear exit) and bedroom escape windows.
+   *   via_rear_exit   — independent rear exit confirmed (B2=yes)
+   *   via_window      — no rear exit but bedroom 1 escape window qualifies
+   *   front_door_only — no qualifying window and no rear exit; sole route is staircase/front door
+   *   unknown         — insufficient information
+   */
+  ground_floor_escape_strategy: 'via_rear_exit' | 'front_door_only' | 'unknown'
+  upper_floor_escape_strategy: 'via_window' | 'via_rear_exit' | 'front_door_only' | 'unknown'
 }
 
 // ---------------------------------------------------------------------------

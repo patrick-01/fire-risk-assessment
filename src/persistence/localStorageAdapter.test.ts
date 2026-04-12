@@ -65,6 +65,8 @@ function makeAssessment(overrides: Partial<Assessment> = {}): Assessment {
       risk_level: 'unresolved',
       risk_score: 0,
       risk_factors_present: [],
+      ground_floor_escape_strategy: 'unknown',
+      upper_floor_escape_strategy: 'unknown',
     },
     report_generated_at: null,
     ...overrides,

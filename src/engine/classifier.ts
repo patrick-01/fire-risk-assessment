@@ -79,12 +79,6 @@ export const RISK_FACTOR_DIMENSIONS: Record<
 // Default / empty structures
 // ---------------------------------------------------------------------------
 
-const DEFAULT_ESCAPE_WINDOWS: EscapeWindowAssessment = {
-  bedroom_1: 'unknown',
-  bedroom_2: 'unknown',
-  living_room: 'unknown',
-}
-
 // ---------------------------------------------------------------------------
 // Main classification function
 // ---------------------------------------------------------------------------
@@ -112,41 +106,86 @@ export function classify(answers: AnswerMap): Classification {
   const communalEntrance = deriveCommunalEntrance(B1)
   const separateEntranceMode = communalEntrance === 'false'
 
-  // Step 2: Out-of-scope triggers → not-section-257 (no further scoring)
+  // Step 2: Out-of-scope triggers → not-section-257 (with full risk scoring)
+  // Note: A4='one_owner_occupied' is NO LONGER treated as out-of-scope.
+  //   One owner-occupied flat in a two-flat building = 50% owner occupation,
+  //   below the Schedule 14 two-thirds threshold. The property proceeds through
+  //   criteria evaluation and may produce 'probable-section-257'.
   const outOfScope =
     A2 === 'no' ||
     A3 === '3_or_more' ||
     A3 === 'not_flats' ||
-    A4 === 'one_owner_occupied' ||
     A4 === 'social' ||
     A5 === 'no'
 
   if (outOfScope) {
+    const escapeWindows = assessEscapeWindows(answers)
+    const innerRoom = deriveInnerRoomPresent(answers)
+    const upperFlatExit = deriveUpperFlatExit(B2)
+    const groundFloorEscape = deriveGroundFloorEscapeStrategy(answers)
+    const upperFloorEscape = deriveUpperFloorEscapeStrategy(B2, escapeWindows)
+
+    const { score, factors } = computeRiskFactors(answers, {
+      communal_entrance: communalEntrance,
+      separate_entrance_mode: separateEntranceMode,
+      escape_windows: escapeWindows,
+      inner_room_present: innerRoom,
+      upper_flat_independent_exit: upperFlatExit,
+    })
+
     return {
       type: 'not-section-257',
       benchmark: 'not-applicable',
       communal_entrance: communalEntrance,
       separate_entrance_mode: separateEntranceMode,
-      upper_flat_independent_exit: 'unknown',
-      inner_room_present: 'unknown',
-      escape_windows: DEFAULT_ESCAPE_WINDOWS,
+      upper_flat_independent_exit: upperFlatExit,
+      inner_room_present: innerRoom,
+      escape_windows: escapeWindows,
       confidence: 'confirmed',
       unresolved_reasons: [],
-      risk_level: 'unresolved',
-      risk_score: 0,
-      risk_factors_present: [],
+      risk_level: scoreToRiskLevel(score),
+      risk_score: score,
+      risk_factors_present: factors,
+      ground_floor_escape_strategy: groundFloorEscape,
+      upper_floor_escape_strategy: upperFloorEscape,
     }
   }
 
   // Step 3: Evaluate s257 criteria
   // null = unanswered, true = criterion met, false = criterion explicitly not met
+  //
+  // A4 special case: 'one_owner_occupied' represents 50% owner occupation — below the
+  // Schedule 14 two-thirds threshold. The property is NOT automatically excluded from s257.
+  // Treat 'one_owner_occupied' as criteria-met but flag for reduced confidence (Step 4).
+  const oneOwnerOccupied = A4 === 'one_owner_occupied'
+
   const criteria: Array<[string, boolean | null]> = [
     ['A1 (converted dwelling)', A1 === 'converted' ? true : A1 !== undefined ? false : null],
-    ['A2 (pre-1991 / non-compliant)', A2 === 'yes' ? true : A2 !== undefined ? false : null],
+    // A2 is only shown (and only meaningful) when A1='converted'.
+    // If A1 is answered as anything other than 'converted', A2 is hidden by show_when
+    // and will be undefined. Treating that undefined as null causes a false-positive
+    // 'hasUnanswered' → 'unresolved'. Guard: when A1≠'converted', A2 criterion is false
+    // (the building is already disqualified by A1), not null (unanswered).
+    [
+      'A2 (pre-1991 / non-compliant)',
+      A1 !== 'converted'
+        ? false
+        : A2 === 'yes'
+          ? true
+          : A2 !== undefined
+            ? false
+            : null,
+    ],
     ['A3 (exactly two flats)', A3 === '2' ? true : A3 !== undefined ? false : null],
     [
-      'A4 (both privately rented)',
-      A4 === 'none_owner_occupied' ? true : A4 !== undefined ? false : null,
+      'A4 (privately rented)',
+      // 'none_owner_occupied' or 'one_owner_occupied' (50% — below Schedule 14 threshold) → true
+      // 'social' was already handled as outOfScope above → never reaches here
+      A4 === 'none_owner_occupied' || oneOwnerOccupied
+        ? true
+        : A4 !== undefined
+          ? false
+          : null,
     ],
     ['A5 (Richmond upon Thames)', A5 === 'yes' ? true : A5 !== undefined ? false : null],
   ]
@@ -175,6 +214,8 @@ export function classify(answers: AnswerMap): Classification {
       risk_level: 'unresolved',
       risk_score: 0,
       risk_factors_present: [],
+      ground_floor_escape_strategy: deriveGroundFloorEscapeStrategy(answers),
+      upper_floor_escape_strategy: deriveUpperFloorEscapeStrategy(B2, escapeWindows),
     }
   }
 
@@ -197,12 +238,22 @@ export function classify(answers: AnswerMap): Classification {
       risk_level: 'unresolved',
       risk_score: 0,
       risk_factors_present: [],
+      ground_floor_escape_strategy: deriveGroundFloorEscapeStrategy(answers),
+      upper_floor_escape_strategy: deriveUpperFloorEscapeStrategy(B2, escapeWindows),
     }
   }
 
   const allMet = criteria.every(([, v]) => v === true)
 
   if (!allMet) {
+    // Criteria explicitly not met → not-section-257, but full risk scoring still applies.
+    const { score, factors } = computeRiskFactors(answers, {
+      communal_entrance: communalEntrance,
+      separate_entrance_mode: separateEntranceMode,
+      escape_windows: escapeWindows,
+      inner_room_present: innerRoom,
+      upper_flat_independent_exit: upperFlatExit,
+    })
     return {
       type: 'not-section-257',
       benchmark: 'not-applicable',
@@ -213,17 +264,32 @@ export function classify(answers: AnswerMap): Classification {
       escape_windows: escapeWindows,
       confidence: 'confirmed',
       unresolved_reasons: [],
-      risk_level: 'unresolved',
-      risk_score: 0,
-      risk_factors_present: [],
+      risk_level: scoreToRiskLevel(score),
+      risk_score: score,
+      risk_factors_present: factors,
+      ground_floor_escape_strategy: deriveGroundFloorEscapeStrategy(answers),
+      upper_floor_escape_strategy: deriveUpperFloorEscapeStrategy(B2, escapeWindows),
     }
   }
 
   // Step 4: All s257 criteria met — compute risk.
-  // If blocked=true here, it means a non-criteria BLOCK_CLASS question was uncertain
-  // → classification is probable rather than confirmed.
-  const classificationType = blocked ? 'probable-section-257' : 'section-257-hmo'
-  const confidence = blocked ? 'probable' : 'confirmed'
+  // Confidence is reduced when:
+  //   - blocked=true (BLOCK_CLASS uncertainty on a non-criteria question), OR
+  //   - oneOwnerOccupied=true (50% owner occupation — criteria met but confidence degraded
+  //     because the full owner-occupation picture may affect regulatory treatment)
+  const needsProbable = blocked || oneOwnerOccupied
+  const classificationType = needsProbable ? 'probable-section-257' : 'section-257-hmo'
+  const confidence = needsProbable ? 'probable' : 'confirmed'
+
+  if (oneOwnerOccupied && !unresolved_reasons.some((r) => r.includes('owner'))) {
+    unresolved_reasons.push(
+      'One flat is owner-occupied. One owner-occupied flat in a two-flat building represents ' +
+      '50% owner occupation — below the Schedule 14 two-thirds threshold — so the property ' +
+      'is not automatically excluded from Section 257. However, the practical regulatory ' +
+      'treatment may differ from a wholly privately rented building. This finding should be ' +
+      'confirmed with Richmond Council or a qualified assessor.'
+    )
+  }
 
   const { score, factors } = computeRiskFactors(answers, {
     communal_entrance: communalEntrance,
@@ -246,6 +312,8 @@ export function classify(answers: AnswerMap): Classification {
     risk_level: scoreToRiskLevel(score),
     risk_score: score,
     risk_factors_present: factors,
+    ground_floor_escape_strategy: deriveGroundFloorEscapeStrategy(answers),
+    upper_floor_escape_strategy: deriveUpperFloorEscapeStrategy(B2, escapeWindows),
   }
 }
 
@@ -274,6 +342,56 @@ function deriveInnerRoomPresent(answers: AnswerMap): Classification['inner_room_
   if (C10 === 'no' && C13 !== undefined && C13 !== 'not_sure') return 'no'
   if (C10 === 'not_sure' || C13 === 'not_sure') return 'unknown'
   if (C10 === 'no') return 'no'
+  return 'unknown'
+}
+
+// ---------------------------------------------------------------------------
+// Unit-aware escape strategy derivation (schema v1.2)
+// ---------------------------------------------------------------------------
+
+/**
+ * Derives the ground-floor flat's primary escape strategy.
+ *
+ * Ground-floor occupants can exit via:
+ *   1. A confirmed rear exit (B3='yes') — via_rear_exit
+ *   2. The front door only (B3='no') — front_door_only
+ *   3. Unknown (B3 not answered or 'not_sure') — unknown
+ *
+ * Note: For a communal-entrance building, "front door" is via the shared staircase.
+ * For separate-entrance, it is the flat's own front door directly to the street.
+ */
+function deriveGroundFloorEscapeStrategy(
+  answers: AnswerMap
+): Classification['ground_floor_escape_strategy'] {
+  const B3 = answers['B3']?.value
+  if (B3 === 'yes') return 'via_rear_exit'
+  if (B3 === 'no') return 'front_door_only'
+  return 'unknown'
+}
+
+/**
+ * Derives the upper flat's primary escape strategy.
+ *
+ * Upper-floor occupants can exit via:
+ *   1. A confirmed independent rear exit (B2='yes') — via_rear_exit
+ *   2. A qualifying bedroom escape window — via_window
+ *   3. Front door / staircase only (no qualifying window, no rear exit) — front_door_only
+ *   4. Unknown (B2 not answered, windows unknown) — unknown
+ */
+function deriveUpperFloorEscapeStrategy(
+  B2: string | number | boolean | null | undefined,
+  escapeWindows: EscapeWindowAssessment
+): Classification['upper_floor_escape_strategy'] {
+  if (B2 === 'yes') return 'via_rear_exit'
+  const anyWindowQualifies =
+    escapeWindows.bedroom_1 === 'qualifies' || escapeWindows.bedroom_2 === 'qualifies'
+  if (anyWindowQualifies) return 'via_window'
+  // Both windows unknown and no rear exit → genuinely unknown
+  const anyWindowUnknown =
+    escapeWindows.bedroom_1 === 'unknown' || escapeWindows.bedroom_2 === 'unknown'
+  if (B2 === undefined && anyWindowUnknown) return 'unknown'
+  // B2 is 'no' and no qualifying window → front door only
+  if (B2 === 'no') return 'front_door_only'
   return 'unknown'
 }
 
@@ -307,7 +425,8 @@ function assessSingleWindow(
   answers: AnswerMap,
   questions: WindowQuestions,
   floorHeightOk: boolean | null,
-  ableBodyied: boolean | null
+  ableBodyied: boolean | null,
+  windowTypeQuestionId?: string
 ): EscapeWindowStatus {
   const hasWindow = answers[questions.has_window]?.value
   if (!hasWindow) return 'unknown'
@@ -315,6 +434,13 @@ function assessSingleWindow(
   if (hasWindow === 'not_sure') return 'unknown'
 
   let hasUnknown = false
+
+  // C1_type: a top-hung-only window may not allow a person to climb through even if
+  // the nominal opening area passes. Treat as unknown pending professional verification.
+  if (windowTypeQuestionId) {
+    const windowType = answers[windowTypeQuestionId]?.value
+    if (windowType === 'top_hung_only') hasUnknown = true
+  }
 
   // Check: no key required
   const noKey = answers[questions.no_key]?.value
@@ -362,7 +488,8 @@ function assessEscapeWindows(answers: AnswerMap): EscapeWindowAssessment {
     answers,
     { has_window: 'C1', no_key: 'C2', sill_ok: 'C3', size_ok: 'C4', no_obstruction: 'C5' },
     floorHeightOk,
-    ableBodyied
+    ableBodyied,
+    'C1_type'
   )
 
   // Bedroom 2 — only applicable if C6 = 'yes' (second bedroom exists)

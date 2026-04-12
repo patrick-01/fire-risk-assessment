@@ -244,8 +244,8 @@ describe('getAnsweredQuestions', () => {
   })
 
   it('excludes non-applicable questions even if they have answers', () => {
-    // If A1='purpose-built', A2 would still show (it has no show_when on A1)
-    // But a question like D1 requires B1=communal — if B1 isn't communal, D1 should not appear
+    // A2 now has show_when A1='converted', so it is hidden for purpose-built.
+    // D1 requires B1=communal — if B1 isn't communal, D1 should not appear.
     const answers: AnswerMap = {
       A1: a('converted'),
       A2: a('yes'),
@@ -322,15 +322,16 @@ describe('getTransitivelyInvalidatedIds', () => {
     expect(Array.isArray(invalidated)).toBe(true)
   })
 
-  it('does not invalidate questions that remain applicable', () => {
-    // A2 doesn't depend on A1's value in show_when (A2 has no show_when on A1)
+  it('invalidates A2 when A1 changes to purpose-built (A2 has show_when A1=converted)', () => {
+    // A2 now has show_when: [{when_question:'A1', has_value:'converted'}]
+    // Changing A1 from 'converted' to 'purpose-built' makes A2 no longer applicable
     const answers: AnswerMap = {
       A1: a('converted'),
       A2: a('yes'),
     }
     const invalidated = getTransitivelyInvalidatedIds('A1', 'purpose-built', answers)
-    // A2 should not be invalidated because it has no show_when dependency on A1
-    expect(invalidated).not.toContain('A2')
+    // A2 should be invalidated because it is no longer shown when A1='purpose-built'
+    expect(invalidated).toContain('A2')
   })
 
   it('returns empty array when changedId is not in the question bank', () => {
@@ -348,18 +349,19 @@ describe('getOutOfScopeReason', () => {
     expect(getOutOfScopeReason(s257())).toBeNull()
   })
 
-  it('returns a string when A2=no triggers out-of-scope', () => {
-    const reason = getOutOfScopeReason({ A2: a('no') })
-    expect(typeof reason).toBe('string')
-    expect(reason!.length).toBeGreaterThan(0)
+  it('returns null for A2=no (post-1991 — no longer a dead-end, assessed as non-section-257)', () => {
+    // A2='no' no longer has triggers_out_of_scope — property continues to full assessment
+    expect(getOutOfScopeReason({ A2: a('no') })).toBeNull()
   })
 
-  it('returns a string when A3=3_or_more triggers out-of-scope', () => {
-    expect(typeof getOutOfScopeReason({ A3: a('3_or_more') })).toBe('string')
+  it('returns null for A3=3_or_more (3+ flats — no longer a dead-end, assessed as non-section-257)', () => {
+    // A3='3_or_more' no longer has triggers_out_of_scope
+    expect(getOutOfScopeReason({ A3: a('3_or_more') })).toBeNull()
   })
 
-  it('returns a string when A4=one_owner_occupied triggers out-of-scope', () => {
-    expect(typeof getOutOfScopeReason({ A4: a('one_owner_occupied') })).toBe('string')
+  it('returns null for A4=one_owner_occupied (no longer a dead-end — 50% owner occupation is below Schedule 14 threshold)', () => {
+    // one_owner_occupied no longer has triggers_out_of_scope
+    expect(getOutOfScopeReason({ A4: a('one_owner_occupied') })).toBeNull()
   })
 
   it('returns a string when A5=no triggers out-of-scope', () => {

@@ -315,9 +315,9 @@ function buildPropertyTypeSummary(
       'confidence and may change if unconfirmed facts are resolved.'
   } else if (c.type === 'unresolved') {
     lacorsNote =
-      'The Section 257 classification is unresolved. LACORS-based recommendations are ' +
-      'suppressed until the classification is confirmed or probable. Statutory items apply ' +
-      'regardless of classification.'
+      'The Section 257 classification is unresolved. LACORS-based recommendations are shown ' +
+      'with unresolved confidence — they may or may not apply depending on the final classification. ' +
+      'Statutory items (gas safety, EICR, alarms) apply regardless of classification.'
   } else {
     lacorsNote =
       'LACORS fire safety guidance for converted buildings applies as the primary risk-assessment ' +
@@ -325,7 +325,6 @@ function buildPropertyTypeSummary(
       'informs what the council and fire safety assessors expect for this property type.'
   }
 
-  // Suppress answers not yet answered
   void answers
 
   return {
@@ -391,6 +390,11 @@ function buildClassificationBasis(_c: Classification, answers: AnswerMap): strin
   if (A2 === 'yes') parts.push('conversion pre-dates 1991 or is evidenced as non-compliant')
   if (A3 === '2') parts.push('contains exactly two self-contained flats')
   if (A4 === 'none_owner_occupied') parts.push('both flats privately rented')
+  if (A4 === 'one_owner_occupied')
+    parts.push(
+      'one flat owner-occupied, one privately rented (50% owner occupation — below the ' +
+      'Schedule 14 two-thirds threshold; classification proceeds as probable Section 257)'
+    )
   if (A5 === 'yes') parts.push('located in London Borough of Richmond upon Thames')
 
   if (parts.length === 0) return 'Classification criteria not yet fully answered.'

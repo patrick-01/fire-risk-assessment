@@ -44,8 +44,8 @@ import type { EscapeWindowStatus } from '../../state/AppState'
 // ---------------------------------------------------------------------------
 
 /** Increment when any rule is added, changed, or removed. */
-export const RULES_VERSION = '2026-04-v4' as const
-export const RULES_DATE = '2026-04-10' as const
+export const RULES_VERSION = '2026-04-v5' as const
+export const RULES_DATE = '2026-04-12' as const
 
 // ---------------------------------------------------------------------------
 // Types
@@ -115,6 +115,8 @@ export interface ConditionClassification {
     | 'separate_entrance_mode'
     | 'inner_room_present'
     | 'upper_flat_independent_exit'
+    | 'ground_floor_escape_strategy'
+    | 'upper_floor_escape_strategy'
   in_values: string[]
   negate?: boolean
 }
@@ -493,39 +495,86 @@ export const REMEDY_RULES: RemedyRule[] = [
 
   {
     id: 'R-F01',
-    title: 'Fit self-closing devices to flat entrance door',
+    title: 'Fit self-closing devices to flat entrance door (communal staircase)',
     tier: 'recommended',
     legal_status: 'lacors_recommendation',
     basis: ['LACORS-benchmark'],
     condition: {
-      type: 'leaf',
-      question_id: 'F1',
-      in_values: ['functioning_self_closer'],
-      negate: true,
+      type: 'and',
+      conditions: [
+        IS_COMMUNAL,
+        {
+          type: 'leaf',
+          question_id: 'F1',
+          in_values: ['functioning_self_closer'],
+          negate: true,
+        },
+      ],
     },
     confidence: 'probable',
     risk_basis:
       'Flat entrance doors without self-closing devices allow fire and smoke from within the flat ' +
-      'to pass into the escape route if the door is left open during evacuation. LACORS §21.5 ' +
-      'states that entrance doors to self-contained flats should be fitted with self-closers. ' +
-      'This is a general expectation for Section 257 HMOs. At lower risk levels a well-fitting ' +
-      'solid door may be tolerated in practice; at elevated or high risk the self-closer becomes ' +
-      'more pressing because it is the first line of protection for the escape route.',
+      'to pass into the shared communal escape route if the door is left open during evacuation. ' +
+      'LACORS §21.5 states that entrance doors to self-contained flats in communal-staircase ' +
+      'buildings should be fitted with self-closers. The primary fire-safety justification is the ' +
+      'protection of the shared staircase — the sole means of escape for the upper flat. For ' +
+      'separate-entrance properties where no communal route is shared, the self-closer argument ' +
+      'is significantly weaker and is addressed by R-F01b at advisory level.',
     text:
       'A self-closing device should be fitted to the flat entrance door. ' +
-      'LACORS §21.5 states that entrance doors to self-contained flats should close automatically. ' +
-      'This limits the spread of fire and smoke from within the flat into the escape route if the ' +
-      'door is left open during evacuation.',
+      'LACORS §21.5 states that entrance doors to self-contained flats in communal-staircase ' +
+      'buildings should close automatically. This limits the spread of fire and smoke from within ' +
+      'the flat into the communal escape route if the door is left open during evacuation.',
     risk_level_expressions: {
       elevated:
         'A functioning self-closer on the flat entrance door is strongly recommended and should ' +
-        'be fitted as a priority. At this overall risk level, protecting the escape route from ' +
-        'smoke and fire spread through an open door is particularly important.',
+        'be fitted as a priority. At this overall risk level, protecting the communal escape route ' +
+        'from smoke and fire spread through an open door is particularly important.',
       high:
         'A functioning self-closer on the flat entrance door should be fitted urgently. Where no ' +
-        'qualifying escape window exists, the door is the primary barrier protecting the escape ' +
-        'route — a door that does not self-close is a serious gap.',
+        'qualifying escape window exists, the communal staircase is the primary barrier — a door ' +
+        'that does not self-close leaves the route unprotected.',
     },
+    applies_when_separate_entrance: false,
+    regulatory_refs: ['LACORS §21.5'],
+  },
+
+  {
+    id: 'R-F01b',
+    title: 'Consider self-closing device on flat entrance door (separate entrance)',
+    tier: 'advisory',
+    legal_status: 'advisory',
+    basis: ['LACORS-benchmark'],
+    condition: {
+      type: 'and',
+      conditions: [
+        {
+          type: 'classification',
+          field: 'separate_entrance_mode',
+          in_values: ['true'],
+        },
+        {
+          type: 'leaf',
+          question_id: 'F1',
+          in_values: ['functioning_self_closer'],
+          negate: true,
+        },
+      ],
+    },
+    confidence: 'probable',
+    risk_basis:
+      'For properties with separate individual entrances, each flat\'s front door opens directly ' +
+      'to the street — not to a shared communal escape route. The primary justification for ' +
+      'self-closers under LACORS §21.5 is protection of the communal staircase. Where no communal ' +
+      'route exists, the self-closer is good practice and reduces the risk of fire spreading to ' +
+      'neighbouring properties, but is not directly required by the same LACORS rationale. This ' +
+      'advisory item is raised for professional confirmation.',
+    text:
+      'No functioning self-closer is fitted to the flat entrance door. For properties with ' +
+      'separate individual entrances, a self-closer on each flat\'s front door is advisory good ' +
+      'practice. LACORS §21.5\'s primary rationale applies to communal staircases; for separate-' +
+      'entrance properties the requirement is less clear-cut. Seek advice from a qualified ' +
+      'fire risk assessor on the appropriate standard for this configuration.',
     applies_when_separate_entrance: true,
     regulatory_refs: ['LACORS §21.5'],
   },
@@ -687,7 +736,7 @@ export const REMEDY_RULES: RemedyRule[] = [
   {
     id: 'R-D01-9mm',
     title: 'Review stair panelling — 9mm plasterboard is below the §19.5 standard',
-    tier: 'advisory',
+    tier: 'recommended',
     legal_status: 'lacors_recommendation',
     basis: ['LACORS-benchmark'],
     condition: {
@@ -935,7 +984,6 @@ export const REMEDY_RULES: RemedyRule[] = [
     condition: {
       type: 'and',
       conditions: [
-        IS_SECTION_257,
         { type: 'escape_window', room: 'bedroom_1', in_statuses: ['does-not-qualify', 'unknown'] },
         { type: 'leaf', question_id: 'B2', in_values: ['no'] },
       ],
@@ -966,11 +1014,9 @@ export const REMEDY_RULES: RemedyRule[] = [
     legal_status: 'advisory',
     basis: ['LACORS-benchmark'],
     condition: {
-      type: 'and',
-      conditions: [
-        IS_SECTION_257,
-        { type: 'classification', field: 'inner_room_present', in_values: ['yes'] },
-      ],
+      type: 'classification',
+      field: 'inner_room_present',
+      in_values: ['yes'],
     },
     confidence: 'probable',
     risk_basis:
@@ -1049,9 +1095,11 @@ export const REMEDY_RULES: RemedyRule[] = [
     legal_status: 'legal_requirement',
     basis: ['mandatory-statutory'],
     condition: {
-      type: 'leaf',
-      question_id: 'G4',
-      in_values: ['no', 'not_sure'],
+      type: 'and',
+      conditions: [
+        { type: 'leaf', question_id: 'G4a', in_values: ['yes'] },
+        { type: 'leaf', question_id: 'G4b', in_values: ['no'] },
+      ],
     },
     confidence: 'confirmed',
     risk_basis:
@@ -1061,14 +1109,57 @@ export const REMEDY_RULES: RemedyRule[] = [
       'privately rented properties in England and came into force on 1 October 2022. Fixed ' +
       'combustion appliances include gas boilers, gas fires, oil boilers, and solid fuel ' +
       'stoves or burners. Carbon monoxide is odourless and colourless; occupants cannot ' +
-      'detect a CO leak without an alarm.',
+      'detect a CO leak without an alarm. A fixed combustion appliance has been confirmed ' +
+      'present and no CO alarm is confirmed in the affected room(s).',
     text:
       'A carbon monoxide alarm must be installed in every room that contains a fixed combustion ' +
       'appliance (other than a gas cooker). This is required by the Smoke and Carbon Monoxide ' +
       'Alarm (Amendment) Regulations 2022, which apply to all privately rented properties in ' +
       'England. Install a CO alarm conforming to BS EN 50291 in each affected room. Ensure the ' +
-      'alarm is working at the start of each new tenancy. Where the answer to question G4 was ' +
-      '"not sure", physically confirm whether a compliant CO alarm is in place.',
+      'alarm is working at the start of each new tenancy.',
+    applies_when_separate_entrance: true,
+    regulatory_refs: [
+      'Smoke and Carbon Monoxide Alarm (Amendment) Regulations 2022',
+      'BS EN 50291',
+    ],
+  },
+
+  {
+    id: 'R-G04b',
+    title: 'Confirm carbon monoxide alarm compliance — appliance or alarm presence uncertain',
+    tier: 'advisory',
+    legal_status: 'advisory',
+    basis: ['mandatory-statutory', 'advisory'],
+    condition: {
+      type: 'or',
+      conditions: [
+        // Appliance presence uncertain
+        { type: 'leaf', question_id: 'G4a', in_values: ['not_sure'] },
+        // Appliance confirmed present but alarm presence uncertain
+        {
+          type: 'and',
+          conditions: [
+            { type: 'leaf', question_id: 'G4a', in_values: ['yes'] },
+            { type: 'leaf', question_id: 'G4b', in_values: ['not_sure'] },
+          ],
+        },
+      ],
+    },
+    confidence: 'unresolved',
+    risk_basis:
+      'The Smoke and Carbon Monoxide Alarm (Amendment) Regulations 2022 require a CO alarm in ' +
+      'any room containing a fixed combustion appliance (other than a gas cooker). Either the ' +
+      'presence of a relevant appliance or the presence of a compliant CO alarm could not be ' +
+      'confirmed from the answers given. Until both are physically verified, the statutory ' +
+      'requirement cannot be assessed. This advisory item is raised to prompt physical ' +
+      'confirmation — if a combustion appliance is present without a CO alarm, the legal ' +
+      'requirement (R-G04) applies.',
+    text:
+      'The presence of a fixed combustion appliance or a compliant CO alarm could not be confirmed. ' +
+      'Physically check the property: identify any fixed combustion appliances (gas boiler, gas fire, ' +
+      'oil boiler, solid fuel stove — not a gas cooker), and confirm whether a BS EN 50291 CO alarm ' +
+      'is fitted in every room containing such an appliance. If a combustion appliance is present ' +
+      'without a CO alarm, installation is required by law.',
     applies_when_separate_entrance: true,
     regulatory_refs: [
       'Smoke and Carbon Monoxide Alarm (Amendment) Regulations 2022',

@@ -143,9 +143,10 @@ export const QUESTIONS: Question[] = [
     type: 'single-choice',
     text: 'How was this building originally constructed?',
     help_text:
-      'A purpose-built maisonette block built as flats from the outset is treated ' +
-      'differently from a converted house. If the building has a single original ' +
-      'staircase that now serves both flats, it is almost certainly a conversion.',
+      'A purpose-built block is assessed as a non-Section-257 rented property — statutory ' +
+      'obligations (gas safety, electrical safety, smoke and CO alarms) still apply and will ' +
+      'be identified. A converted house with a single original staircase now serving both flats ' +
+      'is almost certainly a conversion, not purpose-built.',
     options: [
       {
         value: 'converted',
@@ -154,13 +155,6 @@ export const QUESTIONS: Question[] = [
       {
         value: 'purpose-built',
         label: 'It was purpose-built as two or more maisonettes or flats',
-        triggers_out_of_scope: true,
-        out_of_scope_reason:
-          'Purpose-built maisonettes and flats do not fall under Section 257 of the ' +
-          'Housing Act 2004, which applies only to buildings converted from a single ' +
-          'dwelling. This tool is designed for converted properties only. For a purpose-built ' +
-          'block, contact Richmond Council Housing Enforcement or engage a qualified fire ' +
-          'risk assessor.',
       },
       { value: 'not_sure', label: "I don't know / not sure" },
     ],
@@ -174,25 +168,18 @@ export const QUESTIONS: Question[] = [
     section_position: 2,
     type: 'single-choice',
     text:
-      'Was this conversion (or original construction if purpose-built) completed ' +
-      'before 1991, OR is there evidence it does not comply with Building Regulations 1991?',
+      'Was this conversion completed before 1991, OR is there evidence it does not ' +
+      'comply with Building Regulations 1991?',
     help_text:
-      'A pre-1991 conversion or a conversion evidenced as non-compliant with 1991 ' +
-      'Building Regulations triggers the Section 257 HMO classification under the ' +
-      'Housing Act 2004. Answering "No" means the property is outside the scope of ' +
-      'this tool.',
+      'A pre-1991 conversion, or a conversion evidenced as non-compliant with the 1991 ' +
+      'Building Regulations, meets the Section 257 HMO classification criterion under the ' +
+      'Housing Act 2004. A post-1991 compliant conversion does not meet this criterion — ' +
+      'the property will be assessed as a non-Section-257 privately rented property and ' +
+      'statutory obligations will still be identified.',
+    show_when: [{ when_question: 'A1', has_value: 'converted' }],
     options: [
       { value: 'yes', label: 'Yes — pre-1991 or visibly non-compliant' },
-      {
-        value: 'no',
-        label: 'No — completed in 1991 or later and likely compliant',
-        triggers_out_of_scope: true,
-        out_of_scope_reason:
-          'This tool covers buildings converted before 1991 or evidenced as non-compliant ' +
-          'with Building Regulations 1991. A post-1991 compliant conversion is outside ' +
-          'the scope of Version 1. Contact Richmond Council or a qualified fire risk ' +
-          'assessor for guidance on your property.',
-      },
+      { value: 'no', label: 'No — completed in 1991 or later and likely compliant' },
       { value: 'not_sure', label: 'Not sure' },
     ],
     uncertainty_behaviour: 'BLOCK_CLASS',
@@ -205,18 +192,16 @@ export const QUESTIONS: Question[] = [
     section_position: 3,
     type: 'single-choice',
     text: 'How many separate self-contained flats does this building contain?',
-    help_text: 'Version 1 of this tool supports buildings with exactly two self-contained flats.',
+    help_text:
+      'This tool is scoped to buildings with exactly two self-contained flats. ' +
+      'Section 257 HMO classification under the Housing Act 2004 is not limited to two-flat ' +
+      'buildings in statute — it applies to converted blocks generally. This tool does not ' +
+      'assess buildings with three or more flats; a qualified assessor should be consulted. ' +
+      'Where three or more flats are confirmed, statutory obligations (gas safety, electrical ' +
+      'safety, smoke and CO alarms) are still identified as far as this tool permits.',
     options: [
       { value: '2', label: 'Two flats' },
-      {
-        value: '3_or_more',
-        label: 'Three or more flats',
-        triggers_out_of_scope: true,
-        out_of_scope_reason:
-          'Version 1 of this tool supports buildings with exactly two self-contained flats. ' +
-          'For buildings with three or more flats, contact Richmond Council Housing Enforcement ' +
-          'or engage a qualified fire risk assessor.',
-      },
+      { value: '3_or_more', label: 'Three or more flats' },
       {
         value: 'not_flats',
         label: 'It is not divided into self-contained flats',
@@ -236,8 +221,11 @@ export const QUESTIONS: Question[] = [
     type: 'single-choice',
     text: 'What is the owner-occupation status of the two flats?',
     help_text:
-      'This tool covers privately rented properties. Owner-occupation affects the ' +
-      'legal classification and the confidence level of the assessment.',
+      'Owner-occupation status affects the Section 257 HMO classification and the confidence ' +
+      'level of this assessment. One owner-occupied flat in a two-flat building represents ' +
+      '50% owner occupation — below the two-thirds threshold in Schedule 14 of the Housing ' +
+      'Act 2004 that would exclude the building from HMO classification. The assessment ' +
+      'continues with a reduced confidence level where one flat is owner-occupied.',
     options: [
       {
         value: 'none_owner_occupied',
@@ -245,21 +233,11 @@ export const QUESTIONS: Question[] = [
       },
       {
         value: 'one_owner_occupied',
-        label: 'One flat is owner-occupied',
-        triggers_out_of_scope: true,
-        out_of_scope_reason:
-          'Version 1 of this tool covers properties where both flats are privately rented. ' +
-          'Owner-occupied properties have different regulatory obligations. ' +
-          'Contact Richmond Council or a qualified assessor for guidance.',
+        label: 'One flat is owner-occupied, one is privately rented',
       },
       {
         value: 'social',
         label: 'One or both flats are let by a housing association or council',
-        triggers_out_of_scope: true,
-        out_of_scope_reason:
-          'This tool covers privately rented properties only. Social housing tenancies ' +
-          'are subject to different regulatory frameworks. ' +
-          'Contact the housing association, council, or a qualified assessor.',
       },
       { value: 'not_sure', label: 'Not sure' },
     ],
@@ -501,9 +479,44 @@ export const QUESTIONS: Question[] = [
     scope: 'upper',
   },
   {
-    id: 'C2',
+    id: 'C1_type',
     section: 'C',
     section_position: 2,
+    type: 'single-choice',
+    text: 'What type of opening does the bedroom 1 window have?',
+    help_text:
+      'The type of opening affects whether the window can physically serve as an escape opening. ' +
+      'A top-hung-only window that opens by tilting inward at the top provides limited clearance ' +
+      'and may not allow a person to climb through even if the nominal opening area meets the ' +
+      '0.33m² criterion. A side-hung casement or sash that opens fully generally provides better ' +
+      'escape access. Full-height glazed doors (e.g. a Juliet-style door with an opening panel) ' +
+      'can qualify if all other LACORS §14 criteria are met.',
+    show_when: [{ when_question: 'C1', has_value: 'yes' }],
+    options: [
+      { value: 'side_hung', label: 'Side-hung casement — opens to the side like a door' },
+      {
+        value: 'sash',
+        label: 'Sash window — slides up and down (lower sash opens)',
+      },
+      {
+        value: 'top_hung_only',
+        label: 'Top-hung only — tilts inward at the top; no full side or bottom opening',
+      },
+      {
+        value: 'full_height_door',
+        label: 'Full-height glazed door or Juliet door with an opening panel',
+      },
+      { value: 'other_unknown', label: 'Other type or unknown' },
+    ],
+    uncertainty_behaviour: 'CONSERVATIVE',
+    required: true,
+    scope: 'upper',
+  },
+
+  {
+    id: 'C2',
+    section: 'C',
+    section_position: 3,
     type: 'single-choice',
     text: 'Can the bedroom 1 window be opened without using a key?',
     help_text:
@@ -523,7 +536,7 @@ export const QUESTIONS: Question[] = [
   {
     id: 'C3',
     section: 'C',
-    section_position: 3,
+    section_position: 4,
     type: 'single-choice',
     text: 'Is the bedroom 1 window sill at approximately 1,100mm or less above the floor?',
     help_text:
@@ -543,7 +556,7 @@ export const QUESTIONS: Question[] = [
   {
     id: 'C4',
     section: 'C',
-    section_position: 4,
+    section_position: 5,
     type: 'single-choice',
     text:
       'When fully open, does the bedroom 1 window provide a clear openable area of at ' +
@@ -571,7 +584,7 @@ export const QUESTIONS: Question[] = [
   {
     id: 'C5',
     section: 'C',
-    section_position: 5,
+    section_position: 6,
     type: 'single-choice',
     text:
       'Is there any obstruction below or outside the bedroom 1 window that would prevent ' +
@@ -594,7 +607,7 @@ export const QUESTIONS: Question[] = [
   {
     id: 'C6',
     section: 'C',
-    section_position: 6,
+    section_position: 7,
     type: 'single-choice',
     text: 'Is there a second bedroom in the flat you are assessing?',
     options: [
@@ -607,7 +620,7 @@ export const QUESTIONS: Question[] = [
   {
     id: 'C7',
     section: 'C',
-    section_position: 7,
+    section_position: 8,
     type: 'single-choice',
     text: 'Does bedroom 2 have a window that can be opened?',
     show_when: [{ when_question: 'C6', has_value: 'yes' }],
@@ -623,7 +636,7 @@ export const QUESTIONS: Question[] = [
   {
     id: 'C9a',
     section: 'C',
-    section_position: 8,
+    section_position: 9,
     type: 'single-choice',
     text: 'Can the bedroom 2 window be opened without using a key?',
     show_when: [
@@ -642,7 +655,7 @@ export const QUESTIONS: Question[] = [
   {
     id: 'C9b',
     section: 'C',
-    section_position: 9,
+    section_position: 10,
     type: 'single-choice',
     text: 'Is the bedroom 2 window sill at approximately 1,100mm or less above the floor?',
     show_when: [
@@ -661,7 +674,7 @@ export const QUESTIONS: Question[] = [
   {
     id: 'C9c',
     section: 'C',
-    section_position: 10,
+    section_position: 11,
     type: 'single-choice',
     text:
       'When fully open, does the bedroom 2 window provide a clear openable area of at ' +
@@ -682,7 +695,7 @@ export const QUESTIONS: Question[] = [
   {
     id: 'C9d',
     section: 'C',
-    section_position: 11,
+    section_position: 12,
     type: 'single-choice',
     text:
       'Is there any obstruction below or outside the bedroom 2 window that would ' +
@@ -703,7 +716,7 @@ export const QUESTIONS: Question[] = [
   {
     id: 'C9e',
     section: 'C',
-    section_position: 12,
+    section_position: 13,
     type: 'single-choice',
     text:
       'Can bedroom 2 be reached without passing through a room with a lockable door ' +
@@ -733,7 +746,7 @@ export const QUESTIONS: Question[] = [
   {
     id: 'C10',
     section: 'C',
-    section_position: 13,
+    section_position: 14,
     type: 'single-choice',
     text:
       'Is there any bedroom in the flat that can only be reached by passing through ' +
@@ -762,7 +775,7 @@ export const QUESTIONS: Question[] = [
   {
     id: 'C11',
     section: 'C',
-    section_position: 14,
+    section_position: 15,
     type: 'single-choice',
     text: 'Does the living room have a window that can be opened?',
     options: [
@@ -776,7 +789,7 @@ export const QUESTIONS: Question[] = [
   {
     id: 'C11a',
     section: 'C',
-    section_position: 15,
+    section_position: 16,
     type: 'single-choice',
     text: 'Can the living room window be opened without a key?',
     show_when: [{ when_question: 'C11', has_value: 'yes' }],
@@ -792,7 +805,7 @@ export const QUESTIONS: Question[] = [
   {
     id: 'C11b',
     section: 'C',
-    section_position: 16,
+    section_position: 17,
     type: 'single-choice',
     text: 'Is the living room window sill at approximately 1,100mm or less above the floor?',
     show_when: [{ when_question: 'C11', has_value: 'yes' }],
@@ -808,7 +821,7 @@ export const QUESTIONS: Question[] = [
   {
     id: 'C11c',
     section: 'C',
-    section_position: 17,
+    section_position: 18,
     type: 'single-choice',
     text: 'Does the living room window provide a clear openable area of at least 0.33m²?',
     show_when: [{ when_question: 'C11', has_value: 'yes' }],
@@ -824,7 +837,7 @@ export const QUESTIONS: Question[] = [
   {
     id: 'C11d',
     section: 'C',
-    section_position: 18,
+    section_position: 19,
     type: 'single-choice',
     text:
       'Is there any obstruction below or outside the living room window that would ' +
@@ -844,7 +857,7 @@ export const QUESTIONS: Question[] = [
   {
     id: 'C12',
     section: 'C',
-    section_position: 19,
+    section_position: 20,
     type: 'single-choice',
     text:
       'Are any occupants of the flat mobility-impaired to the extent that escape through ' +
@@ -865,7 +878,7 @@ export const QUESTIONS: Question[] = [
   {
     id: 'C13',
     section: 'C',
-    section_position: 20,
+    section_position: 21,
     type: 'single-choice',
     text:
       'Can bedroom 1 be reached from the front door of the flat without passing through ' +
@@ -888,7 +901,7 @@ export const QUESTIONS: Question[] = [
   {
     id: 'C14',
     section: 'C',
-    section_position: 21,
+    section_position: 22,
     type: 'single-choice',
     text:
       'Does the upper flat entrance — the first area entered on arrival — function as ' +
@@ -1535,35 +1548,63 @@ export const QUESTIONS: Question[] = [
   },
 
   {
-    id: 'G4',
+    id: 'G4a',
     section: 'G',
     section_position: 4,
     type: 'single-choice',
     text:
-      'Does the property have a carbon monoxide (CO) alarm in every room that contains a ' +
-      'fixed combustion appliance (e.g. gas boiler, gas fire, oil boiler, solid fuel stove)?',
+      'Does the property contain any fixed combustion appliances, other than a gas cooker?',
     help_text:
-      'The Smoke and Carbon Monoxide Alarm (Amendment) Regulations 2022 require landlords to ' +
-      'install a CO alarm in any room used as living accommodation that contains a fixed ' +
-      'combustion appliance, other than a gas cooker. This applies to all privately rented ' +
-      'properties in England. If the property has no fixed combustion appliances (other than ' +
-      'a gas cooker), select the last option.',
+      'Fixed combustion appliances covered by the Smoke and Carbon Monoxide Alarm (Amendment) ' +
+      'Regulations 2022 include: gas boilers, gas fires, oil boilers, solid fuel stoves, and ' +
+      'wood-burning stoves. Gas cookers are specifically excluded from this requirement. ' +
+      'If unsure whether an appliance is a "fixed combustion appliance", select "Not sure."',
     options: [
       {
         value: 'yes',
-        label: 'Yes — CO alarm installed in every room with a combustion appliance',
+        label: 'Yes — one or more fixed combustion appliances are present (not a gas cooker)',
       },
       {
         value: 'no',
-        label: 'No — a combustion appliance is present without a CO alarm',
+        label: 'No fixed combustion appliances (other than a gas cooker)',
       },
       {
         value: 'not_sure',
         label: 'Not sure',
       },
+    ],
+    uncertainty_behaviour: 'CONSERVATIVE',
+    required: true,
+    scope: 'building',
+  },
+
+  {
+    id: 'G4b',
+    section: 'G',
+    section_position: 5,
+    type: 'single-choice',
+    text:
+      'Is a carbon monoxide (CO) alarm fitted in every room that contains a fixed combustion ' +
+      'appliance?',
+    help_text:
+      'The Smoke and Carbon Monoxide Alarm (Amendment) Regulations 2022 require landlords to ' +
+      'install a CO alarm in any room used as living accommodation that contains a fixed ' +
+      'combustion appliance, other than a gas cooker. The alarm must conform to BS EN 50291. ' +
+      'Check each room separately — a boiler cupboard, a room with a gas fire, and a room ' +
+      'with a solid fuel stove each require their own CO alarm.',
+    show_when: [{ when_question: 'G4a', has_value: 'yes' }],
+    options: [
       {
-        value: 'no_appliances',
-        label: 'No fixed combustion appliances in the property (other than a gas cooker)',
+        value: 'yes',
+        label: 'Yes — a CO alarm is fitted in every room containing a combustion appliance',
+      },
+      {
+        value: 'no',
+        label: 'No — one or more rooms with a combustion appliance have no CO alarm',
+      },
+      {
+        value: 'not_sure',
+        label: 'Not sure — alarm presence has not been confirmed in all applicable rooms',
       },
     ],
     uncertainty_behaviour: 'CONSERVATIVE',
@@ -1628,13 +1669,17 @@ export const QUESTIONS: Question[] = [
     options: [
       {
         value: 'yes_documented',
-        label: 'Yes — documented schedule with written records',
+        label: 'Formal — documented schedule with written records',
       },
       {
         value: 'informal',
-        label: 'Informal — checks happen but are not documented',
+        label: 'Regular informal — checks happen periodically but are not documented',
       },
-      { value: 'no', label: 'No formal schedule' },
+      {
+        value: 'ad_hoc',
+        label: 'Ad hoc — no regular schedule; checks only when an issue is noticed',
+      },
+      { value: 'no', label: 'None — no maintenance arrangement in place' },
       { value: 'not_sure', label: 'Not sure' },
     ],
     uncertainty_behaviour: 'RISK_ELEVATE',

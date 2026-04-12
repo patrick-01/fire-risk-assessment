@@ -36,15 +36,17 @@ function baseClassification(overrides: Partial<Classification> = {}): Classifica
     risk_level: 'normal',
     risk_score: 3,
     risk_factors_present: ['RF-E01'],
+    ground_floor_escape_strategy: 'unknown',
+    upper_floor_escape_strategy: 'unknown',
     ...overrides,
   }
 }
 
 function makeAssessment(overrides: Partial<Assessment> = {}): Assessment {
   return {
-    schema_version: '1.1',
+    schema_version: '1.2',
     rules_version: RULES_VERSION,
-    app_version: '0.1.0',
+    app_version: '0.3.0',
     assessment_id: 'test-123',
     created_at: '2026-01-01T00:00:00.000Z',
     last_edited_at: '2026-01-02T00:00:00.000Z',
