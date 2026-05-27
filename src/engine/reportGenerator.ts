@@ -74,6 +74,32 @@ export interface PropertyTypeSummary {
   lacors_application_note: string
 }
 
+export interface UpperFlatEscapeStrategySummary {
+  shared_route_exists: string
+  independent_escape: string
+  escape_type: string
+  viability: string
+  shared_route_dependency: string
+  narrative: string
+}
+
+export interface StairCompartmentationSummary {
+  /** False when property has no shared entrance (separate entrance mode). */
+  applicable: boolean
+  /** Human-readable label for D10 answer, or 'Not assessed'. */
+  construction: string
+  /** Human-readable label for D12 answer, or null when question was not shown. */
+  board_thickness: string | null
+  /** Human-readable label for D14 answer, or 'Not assessed'. */
+  inspection_confidence: string
+  /** Human-readable label for D15 answer, or 'Not assessed'. */
+  penetrations: string
+  /** Derived confidence level from classifier. */
+  compartmentation_confidence: string
+  /** Stair-specific risk level derived from RF-S sub-score. */
+  risk_level: string
+}
+
 export interface Report {
   // Metadata
   generated_at: string // ISO 8601
@@ -121,6 +147,12 @@ export interface Report {
 
   // Boilerplate
   disclaimer: ReportSection
+
+  // Stair compartmentation evidence summary
+  stair_compartmentation: StairCompartmentationSummary
+
+  // Upper flat escape strategy summary (§5 of external-stairs spec)
+  upper_flat_escape_strategy: UpperFlatEscapeStrategySummary
 
   // Non-null when rules version has changed since this assessment was saved.
   rules_version_banner: string | null
@@ -230,6 +262,10 @@ export function generateReport(
     legal_requirement_remedies: legal_requirement,
     lacors_recommendation_remedies: lacors_recommendation,
     advisory_items: advisory,
+
+    stair_compartmentation: buildStairCompartmentationSummary(classification, answers),
+
+    upper_flat_escape_strategy: buildUpperFlatEscapeStrategySummary(classification),
 
     unresolved_facts: unresolvedFacts,
 
@@ -362,7 +398,7 @@ function buildClassificationSummary(c: Classification): string {
     c.communal_entrance === 'false'
       ? ' with separate individual entrances'
       : c.communal_entrance === 'true'
-        ? ' with a shared communal entrance and staircase'
+        ? ' with a shared entrance hall'
         : ''
 
   const benchmarkNote =
@@ -509,14 +545,14 @@ function buildAssumptions(classification: Classification, answers: AnswerMap): s
 
   if (classification.communal_entrance === 'true') {
     assumptions.push(
-      'The property has a communal entrance and staircase. Communal-specific requirements ' +
+      'The property has a shared entrance hall. Communal-specific requirements ' +
         '(staircase enclosure, communal alarm, common parts fire risk assessment) apply.'
     )
   }
 
   if (classification.separate_entrance_mode) {
     assumptions.push(
-      'The property has separate individual entrances (no communal staircase). ' +
+      'The property has separate individual entrances (no shared entrance hall). ' +
         'Communal-specific requirements are suppressed. Richmond Council has not issued ' +
         'definitive written guidance for this configuration; recommendations are based on ' +
         'general LACORS principles pending council confirmation.'
@@ -577,5 +613,181 @@ function verificationText(behaviour: string, questionText: string): string {
       return `This unknown is treated as a risk factor. Confirm and document: "${questionText}"`
     default:
       return `Verification required for: "${questionText}"`
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Stair compartmentation summary builder
+// ---------------------------------------------------------------------------
+
+const D10_LABELS: Record<string, string> = {
+  masonry: 'Brick or masonry',
+  plasterboard: 'Plasterboard',
+  lath_plaster: 'Lath and plaster',
+  timber_panelling: 'Timber panelling',
+  mixed: 'Mixed materials',
+  unknown: 'Unknown',
+}
+
+const D12_LABELS: Record<string, string> = {
+  under_9_5: 'Under 9.5mm',
+  '9_5': '9.5mm',
+  '12_5': '12.5mm',
+  double_layer: 'Double layer / over 25mm',
+  unknown: 'Unknown',
+}
+
+const D14_LABELS: Record<string, string> = {
+  visual_only: 'Visual only',
+  edge_visible: 'Edge visible',
+  inspection_opening: 'Inspection opening',
+  intrusive_confirmed: 'Intrusive inspection confirmed',
+}
+
+const D15_LABELS: Record<string, string> = {
+  none: 'None visible',
+  sealed: 'Present but sealed',
+  unsealed: 'Unsealed penetrations',
+  unknown: 'Unknown',
+}
+
+const CONFIDENCE_LABELS: Record<string, string> = {
+  high: 'High',
+  moderate: 'Moderate',
+  low: 'Low',
+  unknown: 'Unknown',
+}
+
+const STAIR_RISK_LABELS: Record<string, string> = {
+  low: 'Low',
+  normal: 'Normal',
+  elevated: 'Elevated',
+  high: 'High',
+}
+
+function buildUpperFlatEscapeStrategySummary(
+  classification: Classification
+): UpperFlatEscapeStrategySummary {
+  const {
+    shared_escape_route,
+    upper_flat_independent_exit,
+    upper_independent_escape_type,
+    upper_external_escape_viable,
+    upper_shared_route_dependency,
+  } = classification
+
+  const sharedRouteExists =
+    shared_escape_route === 'yes' ? 'Yes'
+    : shared_escape_route === 'no' ? 'No'
+    : 'Unknown'
+
+  const independentEscape =
+    upper_flat_independent_exit === 'yes' ? 'Yes'
+    : upper_flat_independent_exit === 'no' ? 'No'
+    : 'Unknown'
+
+  const escapeTypeLabels: Record<string, string> = {
+    external_steel_stair: 'External steel staircase',
+    rear_exit: 'Rear exit / direct external route',
+    other: 'Other independent external route',
+    none: 'None',
+    unknown: 'Unknown',
+  }
+  const escapeType = escapeTypeLabels[upper_independent_escape_type] ?? 'Unknown'
+
+  const viabilityLabels: Record<string, string> = {
+    yes: 'Confirmed viable',
+    no: 'Not viable (obstructed, locked, or poor condition)',
+    unknown: 'Not confirmed',
+  }
+  const viability = viabilityLabels[upper_external_escape_viable] ?? 'Unknown'
+
+  const dependencyLabels: Record<string, string> = {
+    sole_route: 'Sole escape route — upper flat depends entirely on shared entrance/stair',
+    primary_route: 'Primary route — independent escape exists but is unverified',
+    secondary_route: 'Secondary route only — independent external exit confirmed viable',
+    not_relied_on: 'Not relied upon — no shared communal entrance',
+    unknown: 'Unknown',
+  }
+  const sharedRouteDependency = dependencyLabels[upper_shared_route_dependency] ?? 'Unknown'
+
+  let narrative: string
+  if (upper_shared_route_dependency === 'secondary_route') {
+    const typeStr =
+      upper_independent_escape_type === 'external_steel_stair' ? 'external steel staircase to the rear'
+      : upper_independent_escape_type === 'rear_exit' ? 'rear exit / direct external route'
+      : 'independent external escape route'
+    narrative =
+      `The upper flat has a verified ${typeStr}. This reduces reliance on the shared entrance ` +
+      'hall and internal staircase as the sole escape route. Shared-route compartmentation ' +
+      'remains relevant, but the escape strategy is materially stronger than a single-route ' +
+      'upper flat.'
+  } else if (upper_shared_route_dependency === 'primary_route') {
+    narrative =
+      'The upper flat may have an independent external escape route, but it has not been ' +
+      'verified as usable. The app has not reduced shared-route risk until this route is ' +
+      'confirmed usable. Verify usability, obstruction status, and structural condition on site.'
+  } else if (upper_shared_route_dependency === 'sole_route') {
+    narrative =
+      'The upper flat depends on the shared entrance hall and internal staircase as its sole ' +
+      'escape route. Compartmentation and fire door standards for the shared route are directly ' +
+      'relevant. Any fire in the communal area significantly compromises this escape route.'
+  } else if (upper_shared_route_dependency === 'not_relied_on') {
+    narrative =
+      'The property has separate individual entrances. The upper flat does not rely on a shared ' +
+      'communal entrance hall or staircase.'
+  } else {
+    narrative =
+      'Insufficient information to determine the upper flat escape strategy. Complete Section B ' +
+      'of the questionnaire.'
+  }
+
+  return {
+    shared_route_exists: sharedRouteExists,
+    independent_escape: independentEscape,
+    escape_type: escapeType,
+    viability,
+    shared_route_dependency: sharedRouteDependency,
+    narrative,
+  }
+}
+
+function buildStairCompartmentationSummary(
+  classification: Classification,
+  answers: AnswerMap
+): StairCompartmentationSummary {
+  if (classification.separate_entrance_mode) {
+    return {
+      applicable: false,
+      construction: 'Not applicable',
+      board_thickness: null,
+      inspection_confidence: 'Not applicable',
+      penetrations: 'Not applicable',
+      compartmentation_confidence: 'Not applicable',
+      risk_level: 'Not applicable',
+    }
+  }
+
+  const D10 = answers['D10']?.value as string | undefined
+  const D12 = answers['D12']?.value as string | undefined
+  const D14 = answers['D14']?.value as string | undefined
+  const D15 = answers['D15']?.value as string | undefined
+
+  // D12 is only shown for board-type materials — null when not applicable
+  const boardThicknessApplicable =
+    D10 === 'plasterboard' || D10 === 'lath_plaster' || D10 === 'mixed' || D10 === 'unknown'
+
+  return {
+    applicable: true,
+    construction: D10 ? (D10_LABELS[D10] ?? D10) : 'Not assessed',
+    board_thickness: boardThicknessApplicable
+      ? (D12 ? (D12_LABELS[D12] ?? D12) : 'Not assessed')
+      : null,
+    inspection_confidence: D14 ? (D14_LABELS[D14] ?? D14) : 'Not assessed',
+    penetrations: D15 ? (D15_LABELS[D15] ?? D15) : 'Not assessed',
+    compartmentation_confidence:
+      CONFIDENCE_LABELS[classification.stair_compartmentation_confidence] ?? 'Unknown',
+    risk_level:
+      STAIR_RISK_LABELS[classification.stair_compartmentation_risk] ?? 'Unknown',
   }
 }

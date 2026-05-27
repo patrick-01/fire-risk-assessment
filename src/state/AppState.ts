@@ -104,8 +104,14 @@ export interface Classification {
   communal_entrance: CommunalEntranceType
   /** True when B1 = 'separate'. Derived from communal_entrance = 'false'. */
   separate_entrance_mode: boolean
-  /** From B2. Whether the upper flat has an independent rear exit. */
+  /** From B2. Whether the upper flat has any independent escape route not using the shared staircase. */
   upper_flat_independent_exit: 'yes' | 'no' | 'unknown'
+  /** Type of independent escape route claimed for the upper flat. Derived from B2. */
+  upper_independent_escape_type: 'external_steel_stair' | 'rear_exit' | 'other' | 'none' | 'unknown'
+  /** Whether the upper flat's external escape route is confirmed as viable. Derived from B2, B2a, B2c. */
+  upper_external_escape_viable: 'yes' | 'no' | 'unknown'
+  /** How heavily the upper flat depends on the shared entrance/staircase as its primary escape route. */
+  upper_shared_route_dependency: 'sole_route' | 'primary_route' | 'secondary_route' | 'not_relied_on' | 'unknown'
   /** From C10, C13. Whether an inner room situation exists. */
   inner_room_present: 'yes' | 'no' | 'unknown'
   /** Derived from Section C answers combined with B4 (floor height) and C12 (mobility). */
@@ -119,6 +125,23 @@ export interface Classification {
   risk_score: number
   /** IDs of risk factors that contributed to the score. */
   risk_factors_present: string[]
+  /**
+   * Whether the shared entrance hall / staircase is used as an escape route
+   * by more than one household (derived from F6a answer).
+   * 'no' when B1 = 'separate'; 'unknown' when F6a not yet answered.
+   */
+  shared_escape_route: 'yes' | 'no' | 'unknown'
+  /**
+   * Evidence-based assessment of whether the stair enclosure provides
+   * meaningful fire compartmentation (derived from D10–D17 answers).
+   * 'unknown' when no shared entrance or questions not answered.
+   */
+  stair_compartmentation_confidence: 'high' | 'moderate' | 'low' | 'unknown'
+  /**
+   * Stair-enclosure-specific risk level derived from RF-S01–RF-S06 sub-score.
+   * 'low' when no shared entrance or no stair-specific risk factors triggered.
+   */
+  stair_compartmentation_risk: 'low' | 'normal' | 'elevated' | 'high'
   /**
    * Minimum viable unit-aware escape model (schema v1.2).
    *

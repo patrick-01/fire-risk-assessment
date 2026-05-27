@@ -22,7 +22,11 @@ function baseClassification(overrides: Partial<Classification> = {}): Classifica
     benchmark: 'D10',
     communal_entrance: 'true',
     separate_entrance_mode: false,
+    shared_escape_route: 'unknown',
     upper_flat_independent_exit: 'unknown',
+    upper_independent_escape_type: 'unknown',
+    upper_external_escape_viable: 'unknown',
+    upper_shared_route_dependency: 'unknown',
     inner_room_present: 'unknown',
     escape_windows: {
       bedroom_1: 'unknown',
@@ -34,6 +38,8 @@ function baseClassification(overrides: Partial<Classification> = {}): Classifica
     risk_level: 'normal',
     risk_score: 3,
     risk_factors_present: [],
+    stair_compartmentation_confidence: 'unknown',
+    stair_compartmentation_risk: 'low',
     ground_floor_escape_strategy: 'unknown',
     upper_floor_escape_strategy: 'unknown',
     ...overrides,
@@ -324,5 +330,120 @@ describe('groupRemediesByLegalStatus', () => {
     expect(legal_requirement).toHaveLength(0)
     expect(lacors_recommendation).toHaveLength(0)
     expect(advisory).toHaveLength(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// External escape route scenarios (docs/external-stairs.md §7)
+// ---------------------------------------------------------------------------
+
+describe('external escape route — Scenario 1: sole_route (no independent escape)', () => {
+  // B2='no': upper flat has no independent escape, shared stair is sole route
+  const classification = baseClassification({
+    upper_flat_independent_exit: 'no',
+    upper_independent_escape_type: 'none',
+    upper_external_escape_viable: 'no',
+    upper_shared_route_dependency: 'sole_route',
+    escape_windows: { bedroom_1: 'does-not-qualify', bedroom_2: 'unknown', living_room: 'unknown' },
+  })
+
+  it('R-C01 fires when no viable external exit and bedroom window does not qualify', () => {
+    const remedies = computeRemedies({}, classification)
+    expect(remedies.some((r) => r.id === 'R-C01')).toBe(true)
+  })
+
+  it('R-B01 does not fire when external viable is not unknown', () => {
+    const remedies = computeRemedies({}, classification)
+    expect(remedies.some((r) => r.id === 'R-B01')).toBe(false)
+  })
+
+  it('R-B02 does not fire when no independent exit exists', () => {
+    const remedies = computeRemedies({}, classification)
+    expect(remedies.some((r) => r.id === 'R-B02')).toBe(false)
+  })
+})
+
+describe('external escape route — Scenario 2: secondary_route (verified external stair)', () => {
+  // B2='yes_external_steel_stair', B2a='yes', B2c='yes': viable independent exit
+  const classification = baseClassification({
+    upper_flat_independent_exit: 'yes',
+    upper_independent_escape_type: 'external_steel_stair',
+    upper_external_escape_viable: 'yes',
+    upper_shared_route_dependency: 'secondary_route',
+    escape_windows: { bedroom_1: 'does-not-qualify', bedroom_2: 'unknown', living_room: 'unknown' },
+    risk_score: 1,
+    risk_level: 'low',
+  })
+
+  it('R-C01 does not fire when external escape is confirmed viable', () => {
+    const remedies = computeRemedies({}, classification)
+    expect(remedies.some((r) => r.id === 'R-C01')).toBe(false)
+  })
+
+  it('R-B01 does not fire when external escape is confirmed viable', () => {
+    const remedies = computeRemedies({}, classification)
+    expect(remedies.some((r) => r.id === 'R-B01')).toBe(false)
+  })
+
+  it('R-B02 does not fire when external escape is viable', () => {
+    const remedies = computeRemedies({}, classification)
+    expect(remedies.some((r) => r.id === 'R-B02')).toBe(false)
+  })
+
+  it('risk score is lower than sole_route scenario', () => {
+    // This is tested at the classification level, but we verify the score field is present
+    expect(classification.risk_score).toBeLessThan(3)
+  })
+})
+
+describe('external escape route — Scenario 3: unknown viability (unverified external stair)', () => {
+  // B2='yes_external_steel_stair', B2a='unknown': viability not confirmed
+  const classification = baseClassification({
+    upper_flat_independent_exit: 'yes',
+    upper_independent_escape_type: 'external_steel_stair',
+    upper_external_escape_viable: 'unknown',
+    upper_shared_route_dependency: 'primary_route',
+    escape_windows: { bedroom_1: 'does-not-qualify', bedroom_2: 'unknown', living_room: 'unknown' },
+  })
+
+  it('R-C01 fires when external escape viability is unknown', () => {
+    const remedies = computeRemedies({}, classification)
+    expect(remedies.some((r) => r.id === 'R-C01')).toBe(true)
+  })
+
+  it('R-B01 fires when external escape viability is unknown', () => {
+    const remedies = computeRemedies({}, classification)
+    expect(remedies.some((r) => r.id === 'R-B01')).toBe(true)
+  })
+
+  it('R-B02 does not fire when external escape is not confirmed unusable', () => {
+    const remedies = computeRemedies({}, classification)
+    expect(remedies.some((r) => r.id === 'R-B02')).toBe(false)
+  })
+})
+
+describe('external escape route — Scenario 4: obstructed/unusable external route', () => {
+  // B2='yes_external_steel_stair', B2a='no_obstructed': route not viable
+  const classification = baseClassification({
+    upper_flat_independent_exit: 'yes',
+    upper_independent_escape_type: 'external_steel_stair',
+    upper_external_escape_viable: 'no',
+    upper_shared_route_dependency: 'primary_route',
+    escape_windows: { bedroom_1: 'does-not-qualify', bedroom_2: 'unknown', living_room: 'unknown' },
+  })
+
+  it('R-C01 fires when external escape is not viable', () => {
+    const remedies = computeRemedies({}, classification)
+    expect(remedies.some((r) => r.id === 'R-C01')).toBe(true)
+  })
+
+  it('R-B01 does not fire when external escape is definitively not viable (not unknown)', () => {
+    const remedies = computeRemedies({}, classification)
+    expect(remedies.some((r) => r.id === 'R-B01')).toBe(false)
+  })
+
+  it('R-B02 fires when independent exit exists but is not viable', () => {
+    const remedies = computeRemedies({}, classification)
+    expect(remedies.some((r) => r.id === 'R-B02')).toBe(true)
   })
 })

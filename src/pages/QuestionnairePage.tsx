@@ -206,12 +206,10 @@ export default function QuestionnairePage() {
         sectionProgress={sectionProgress}
       />
 
-      {/* Saved indicator */}
-      {showSaved && (
-        <p className="saving-indicator" aria-live="polite">
-          Saved
-        </p>
-      )}
+      {/* Saved indicator — always rendered to avoid layout shift */}
+      <p className="saving-indicator" aria-live="polite" style={{ visibility: showSaved ? 'visible' : 'hidden' }}>
+        Saved
+      </p>
 
       {/* Invalidation confirmation */}
       {pendingConfirm && (

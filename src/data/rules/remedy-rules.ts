@@ -44,8 +44,8 @@ import type { EscapeWindowStatus } from '../../state/AppState'
 // ---------------------------------------------------------------------------
 
 /** Increment when any rule is added, changed, or removed. */
-export const RULES_VERSION = '2026-04-v5' as const
-export const RULES_DATE = '2026-04-12' as const
+export const RULES_VERSION = '2026-05-v3' as const
+export const RULES_DATE = '2026-05-27' as const
 
 // ---------------------------------------------------------------------------
 // Types
@@ -113,8 +113,12 @@ export interface ConditionClassification {
     | 'confidence'
     | 'risk_level'
     | 'separate_entrance_mode'
+    | 'shared_escape_route'
     | 'inner_room_present'
     | 'upper_flat_independent_exit'
+    | 'upper_independent_escape_type'
+    | 'upper_external_escape_viable'
+    | 'upper_shared_route_dependency'
     | 'ground_floor_escape_strategy'
     | 'upper_floor_escape_strategy'
   in_values: string[]
@@ -192,6 +196,12 @@ const IS_COMMUNAL: ConditionClassification = {
   type: 'classification',
   field: 'communal_entrance',
   in_values: ['true'],
+}
+
+const IS_SHARED_ESCAPE_ROUTE: ConditionClassification = {
+  type: 'classification',
+  field: 'shared_escape_route',
+  in_values: ['yes'],
 }
 
 // ---------------------------------------------------------------------------
@@ -495,7 +505,7 @@ export const REMEDY_RULES: RemedyRule[] = [
 
   {
     id: 'R-F01',
-    title: 'Fit self-closing devices to flat entrance door (communal staircase)',
+    title: 'Fit self-closing devices to flat entrance doors (shared escape route)',
     tier: 'recommended',
     legal_status: 'lacors_recommendation',
     basis: ['LACORS-benchmark'],
@@ -504,35 +514,46 @@ export const REMEDY_RULES: RemedyRule[] = [
       conditions: [
         IS_COMMUNAL,
         {
-          type: 'leaf',
-          question_id: 'F1',
-          in_values: ['functioning_self_closer'],
-          negate: true,
+          type: 'or',
+          conditions: [
+            {
+              type: 'leaf',
+              question_id: 'F1a',
+              in_values: ['functioning_self_closer'],
+              negate: true,
+            },
+            {
+              type: 'leaf',
+              question_id: 'F1b',
+              in_values: ['functioning_self_closer'],
+              negate: true,
+            },
+          ],
         },
       ],
     },
     confidence: 'probable',
     risk_basis:
-      'Flat entrance doors without self-closing devices allow fire and smoke from within the flat ' +
-      'to pass into the shared communal escape route if the door is left open during evacuation. ' +
-      'LACORS §21.5 states that entrance doors to self-contained flats in communal-staircase ' +
-      'buildings should be fitted with self-closers. The primary fire-safety justification is the ' +
-      'protection of the shared staircase — the sole means of escape for the upper flat. For ' +
-      'separate-entrance properties where no communal route is shared, the self-closer argument ' +
-      'is significantly weaker and is addressed by R-F01b at advisory level.',
+      'Flat entrance doors without self-closing devices allow fire and smoke from within a flat ' +
+      'to pass into the shared entrance hall or escape route if the door is left open during evacuation. ' +
+      'LACORS §21.5 states that entrance doors to self-contained flats in buildings with a shared ' +
+      'escape route should be fitted with self-closers. The primary justification is the protection ' +
+      'of the shared entrance hall — the shared escape route for both flats. For separate-entrance ' +
+      'properties where no escape route is shared, the self-closer argument is addressed by R-F01b ' +
+      'at advisory level.',
     text:
-      'A self-closing device should be fitted to the flat entrance door. ' +
-      'LACORS §21.5 states that entrance doors to self-contained flats in communal-staircase ' +
-      'buildings should close automatically. This limits the spread of fire and smoke from within ' +
-      'the flat into the communal escape route if the door is left open during evacuation.',
+      'A self-closing device should be fitted to each flat entrance door. ' +
+      'LACORS §21.5 states that entrance doors to self-contained flats in buildings with a shared ' +
+      'escape route should close automatically. This limits the spread of fire and smoke from within ' +
+      'a flat into the shared entrance hall if the door is left open during evacuation.',
     risk_level_expressions: {
       elevated:
-        'A functioning self-closer on the flat entrance door is strongly recommended and should ' +
-        'be fitted as a priority. At this overall risk level, protecting the communal escape route ' +
+        'A functioning self-closer on each flat entrance door is strongly recommended and should ' +
+        'be fitted as a priority. At this overall risk level, protecting the shared entrance hall ' +
         'from smoke and fire spread through an open door is particularly important.',
       high:
-        'A functioning self-closer on the flat entrance door should be fitted urgently. Where no ' +
-        'qualifying escape window exists, the communal staircase is the primary barrier — a door ' +
+        'A functioning self-closer on each flat entrance door should be fitted urgently. Where no ' +
+        'qualifying escape window exists, the shared escape route is the primary barrier — a door ' +
         'that does not self-close leaves the route unprotected.',
     },
     applies_when_separate_entrance: false,
@@ -554,27 +575,38 @@ export const REMEDY_RULES: RemedyRule[] = [
           in_values: ['true'],
         },
         {
-          type: 'leaf',
-          question_id: 'F1',
-          in_values: ['functioning_self_closer'],
-          negate: true,
+          type: 'or',
+          conditions: [
+            {
+              type: 'leaf',
+              question_id: 'F1a',
+              in_values: ['functioning_self_closer'],
+              negate: true,
+            },
+            {
+              type: 'leaf',
+              question_id: 'F1b',
+              in_values: ['functioning_self_closer'],
+              negate: true,
+            },
+          ],
         },
       ],
     },
     confidence: 'probable',
     risk_basis:
       'For properties with separate individual entrances, each flat\'s front door opens directly ' +
-      'to the street — not to a shared communal escape route. The primary justification for ' +
-      'self-closers under LACORS §21.5 is protection of the communal staircase. Where no communal ' +
-      'route exists, the self-closer is good practice and reduces the risk of fire spreading to ' +
-      'neighbouring properties, but is not directly required by the same LACORS rationale. This ' +
-      'advisory item is raised for professional confirmation.',
+      'to the street — not to a shared escape route. The primary justification for ' +
+      'self-closers under LACORS §21.5 is protection of the shared entrance hall or escape route. ' +
+      'Where no shared route exists, the self-closer is good practice and reduces the risk of fire ' +
+      'spreading to neighbouring properties, but is not directly required by the same LACORS ' +
+      'rationale. This advisory item is raised for professional confirmation.',
     text:
       'No functioning self-closer is fitted to the flat entrance door. For properties with ' +
       'separate individual entrances, a self-closer on each flat\'s front door is advisory good ' +
-      'practice. LACORS §21.5\'s primary rationale applies to communal staircases; for separate-' +
-      'entrance properties the requirement is less clear-cut. Seek advice from a qualified ' +
-      'fire risk assessor on the appropriate standard for this configuration.',
+      'practice. LACORS §21.5\'s primary rationale applies to buildings with a shared escape route; ' +
+      'for separate-entrance properties the requirement is less clear-cut. Seek advice from a ' +
+      'qualified fire risk assessor on the appropriate standard for this configuration.',
     applies_when_separate_entrance: true,
     regulatory_refs: ['LACORS §21.5'],
   },
@@ -591,8 +623,13 @@ export const REMEDY_RULES: RemedyRule[] = [
         IS_SECTION_257,
         // No qualifying bedroom escape window (sole escape is staircase or front door)
         { type: 'escape_window', room: 'bedroom_1', in_statuses: ['does-not-qualify', 'unknown'] },
-        // No independent rear exit
-        { type: 'leaf', question_id: 'B2', in_values: ['no'] },
+        // No confirmed viable independent escape route — suppressed when external route is verified viable
+        {
+          type: 'classification',
+          field: 'upper_external_escape_viable',
+          in_values: ['yes'],
+          negate: true,
+        },
       ],
     },
     confidence: 'probable',
@@ -670,28 +707,28 @@ export const REMEDY_RULES: RemedyRule[] = [
 
   {
     id: 'R-F06',
-    title: 'Fit or repair self-closer on communal front door',
+    title: 'Fit or repair self-closer on building final exit door',
     tier: 'recommended',
     legal_status: 'lacors_recommendation',
     basis: ['LACORS-benchmark'],
     condition: {
       type: 'and',
       conditions: [
-        IS_COMMUNAL,
-        { type: 'leaf', question_id: 'F6', in_values: ['fitted_not_working', 'no', 'not_sure'] },
+        IS_SHARED_ESCAPE_ROUTE,
+        { type: 'leaf', question_id: 'F6b', in_values: ['fitted_not_working', 'no', 'not_sure'] },
       ],
     },
     confidence: 'probable',
     risk_basis:
-      'The communal front door is the final means of exit from the building and the primary ' +
-      'barrier preventing external fire or unauthorised access from entering the escape route. ' +
-      'LACORS §21.5 addresses the importance of self-closing devices on communal entrance doors. ' +
-      'A door that is left open or propped open undermines the compartmentation of the entire ' +
-      'escape route.',
+      'The building final exit door is the last barrier between the shared escape route and the ' +
+      'outside. A self-closer ensures the door returns to a closed position after use, preventing ' +
+      'smoke from an external fire or street-level incident from entering the shared escape route, ' +
+      'and reducing the risk of the door being propped open. LACORS §21.5 addresses self-closing ' +
+      'devices on final exit doors where a shared escape route is present.',
     text:
-      'The communal front door should be fitted with a functioning self-closer. This ensures the ' +
-      'door returns to a closed position after use, maintaining compartmentation of the communal ' +
-      'escape route.',
+      'The building final exit door should be fitted with a functioning self-closer. This ensures ' +
+      'the door returns to a closed position after use, maintaining compartmentation of the shared ' +
+      'entrance hall and preventing smoke or unauthorised access from compromising the escape route.',
     applies_when_separate_entrance: false,
     regulatory_refs: ['LACORS §21.5'],
   },
@@ -863,7 +900,7 @@ export const REMEDY_RULES: RemedyRule[] = [
 
   {
     id: 'R-D05',
-    title: 'Provide fire-resisting enclosure for cupboard or meter box in communal staircase',
+    title: 'Provide fire-resisting enclosure for cupboard or meter box in shared entrance hall or staircase',
     tier: 'recommended',
     legal_status: 'lacors_recommendation',
     basis: ['LACORS-benchmark'],
@@ -876,15 +913,15 @@ export const REMEDY_RULES: RemedyRule[] = [
     },
     confidence: 'probable',
     risk_basis:
-      'A cupboard, storage space, or meter box located within the communal staircase without ' +
-      'a fire-resisting door and enclosure provides a concealed void where a fire can start ' +
+      'A cupboard, storage space, or meter box located within the shared entrance hall or staircase ' +
+      'without a fire-resisting door and enclosure provides a concealed void where a fire can start ' +
       'and develop undetected before entering the escape route. Combustible items stored in ' +
       'such a space (coats, cleaning materials, cardboard) increase the fuel load. LACORS ' +
       'considers ignition risk in the escape route as a material factor.',
     text:
-      'A cupboard or meter box is present within the communal staircase without a fire-resisting ' +
-      'door and enclosure. The enclosure should be upgraded to include a fire-resisting door ' +
-      '(FD30 minimum) that is self-closing. Any combustible materials stored within should be ' +
+      'A cupboard or meter box is present within the shared entrance hall or staircase without a ' +
+      'fire-resisting door and enclosure. The enclosure should be upgraded to include a fire-resisting ' +
+      'door (FD30 minimum) that is self-closing. Any combustible materials stored within should be ' +
       'removed.',
     applies_when_separate_entrance: false,
     regulatory_refs: ['LACORS §19.6', 'LACORS §21.5'],
@@ -977,7 +1014,7 @@ export const REMEDY_RULES: RemedyRule[] = [
 
   {
     id: 'R-C01',
-    title: 'No qualifying bedroom escape window and no rear exit — assess escape route adequacy',
+    title: 'No qualifying bedroom escape window and no confirmed viable alternative escape — assess route adequacy',
     tier: 'advisory',
     legal_status: 'advisory',
     basis: ['LACORS-benchmark'],
@@ -985,24 +1022,33 @@ export const REMEDY_RULES: RemedyRule[] = [
       type: 'and',
       conditions: [
         { type: 'escape_window', room: 'bedroom_1', in_statuses: ['does-not-qualify', 'unknown'] },
-        { type: 'leaf', question_id: 'B2', in_values: ['no'] },
+        // Fires unless the external escape route is confirmed viable (reduces sole-route dependency)
+        {
+          type: 'classification',
+          field: 'upper_external_escape_viable',
+          in_values: ['yes'],
+          negate: true,
+        },
       ],
     },
     confidence: 'probable',
     risk_basis:
       'LACORS §14 identifies qualifying escape windows as a key component of the escape strategy ' +
       'for upper flats in converted buildings. Where the main bedroom escape window does not ' +
-      'qualify and no independent rear exit exists, the staircase or front door is the only ' +
-      'practical means of escape. This means any fire in the communal area or at the main exit ' +
-      'leaves occupants with no alternative. This is a material risk factor that should inform ' +
-      'the assessment of the flat entrance door, the staircase enclosure, and detection provision.',
+      'qualify and no confirmed viable independent escape route exists, the staircase or front ' +
+      'door is the only practical means of escape. This means any fire in the communal area or ' +
+      'at the main exit leaves occupants with no alternative. This is a material risk factor that ' +
+      'should inform the assessment of the flat entrance door, the staircase enclosure, and ' +
+      'detection provision. This advisory is suppressed where a viable external escape route has ' +
+      'been confirmed, as the sole-route dependency is then materially reduced.',
     text:
       'The main bedroom escape window does not appear to qualify under LACORS §14 criteria, and ' +
-      'no independent rear exit exists. The staircase or front door is the primary — and possibly ' +
-      'only — means of escape. This finding should be read alongside the flat entrance door ' +
-      'assessment (R-F02) and the staircase protection findings. Improving the fire resistance ' +
-      'of the escape route becomes more important where no window alternative exists. Physical ' +
-      'verification of the window dimensions and opening characteristics is recommended.',
+      'no confirmed viable independent escape route has been recorded. The staircase or front door ' +
+      'is the primary — and possibly only — means of escape. This finding should be read alongside ' +
+      'the flat entrance door assessment (R-F02) and the staircase protection findings. Improving ' +
+      'the fire resistance of the escape route becomes more important where no window alternative ' +
+      'exists. Physical verification of window dimensions, opening characteristics, and any ' +
+      'external escape route is recommended.',
     applies_when_separate_entrance: true,
     regulatory_refs: ['LACORS §14', 'LACORS Case Study D10'],
   },
@@ -1165,5 +1211,206 @@ export const REMEDY_RULES: RemedyRule[] = [
       'Smoke and Carbon Monoxide Alarm (Amendment) Regulations 2022',
       'BS EN 50291',
     ],
+  },
+
+  // =========================================================================
+  // Section S — Stair compartmentation
+  // =========================================================================
+
+  {
+    id: 'R-S01',
+    title: 'Compartmentation of staircase enclosure uncertain',
+    tier: 'advisory',
+    legal_status: 'advisory',
+    basis: ['LACORS-benchmark', 'advisory'],
+    condition: {
+      type: 'or',
+      conditions: [
+        {
+          type: 'and',
+          conditions: [
+            { type: 'leaf', question_id: 'D10', in_values: ['plasterboard'] },
+            { type: 'leaf', question_id: 'D14', in_values: ['visual_only'] },
+            { type: 'leaf', question_id: 'D12', in_values: ['unknown'] },
+          ],
+        },
+        {
+          type: 'and',
+          conditions: [
+            { type: 'leaf', question_id: 'D11', in_values: ['1950_1970'] },
+            { type: 'leaf', question_id: 'D14', in_values: ['visual_only'] },
+          ],
+        },
+      ],
+    },
+    confidence: 'confirmed',
+    risk_basis:
+      'The staircase enclosure is typically the single most important fire separation ' +
+      'element in a converted two-flat building. Where the construction cannot be confirmed ' +
+      'by visual inspection alone — particularly in 1950–1970 conversions where substandard ' +
+      'materials were common — compartmentation uncertainty may significantly affect escape ' +
+      'route protection for both households. LACORS §19 and §20 require adequate separation ' +
+      'between the escape route and each dwelling.',
+    text:
+      'The staircase enclosure is likely to be a critical fire separation element, but its ' +
+      'construction cannot currently be verified from a visual inspection alone. Consider a ' +
+      'concealed inspection opening or other investigation to determine board construction and ' +
+      'continuity. If the board thickness proves to be below 12.5mm or the construction is ' +
+      'otherwise inadequate, upgrade works may be required.',
+    applies_when_separate_entrance: false,
+    regulatory_refs: [
+      'LACORS Housing — Fire Safety (2008) §19',
+      'LACORS Housing — Fire Safety (2008) §20',
+    ],
+  },
+
+  {
+    id: 'R-S02',
+    title: 'Stair enclosure likely to provide inadequate separation',
+    tier: 'recommended',
+    legal_status: 'lacors_recommendation',
+    basis: ['LACORS-benchmark', 'council-confirmed'],
+    condition: {
+      type: 'or',
+      conditions: [
+        { type: 'leaf', question_id: 'D10', in_values: ['timber_panelling'] },
+        { type: 'leaf', question_id: 'D16', in_values: ['no'] },
+        { type: 'leaf', question_id: 'D15', in_values: ['unsealed'] },
+      ],
+    },
+    confidence: 'confirmed',
+    risk_basis:
+      'Timber panelling provides negligible fire resistance and, if used as the main stair ' +
+      'enclosure lining, does not meet the LACORS §19 expectation of 30-minute fire separation ' +
+      'between the escape route and each dwelling. An incomplete enclosure (gaps or breaks) ' +
+      'defeats compartmentation regardless of lining material. Unsealed penetrations allow fire ' +
+      'and smoke to bypass the enclosure even where the main surface is adequate (LACORS §20).',
+    text:
+      'The stair enclosure may not provide sufficient separation between flats and escape ' +
+      'routes. Further investigation and possible upgrade works should be considered. Where ' +
+      'timber panelling is used, replacement with 12.5mm plasterboard lining is the standard ' +
+      'remediation. Where the enclosure is incomplete, continuity must be restored. Unsealed ' +
+      'penetrations should be fire-stopped with an appropriate intumescent product.',
+    risk_level_expressions: {
+      elevated:
+        'The stair enclosure appears to provide inadequate separation at a property with ' +
+        'elevated overall risk. Targeted investigation and upgrade works are strongly recommended ' +
+        'to address the identified deficiency before the next tenancy renewal.',
+      high:
+        'The stair enclosure appears to provide inadequate separation at a high-risk property. ' +
+        'This is a priority finding. Upgrade works should be specified and carried out as soon ' +
+        'as reasonably practicable. Richmond Council may require confirmation of remediation.',
+    },
+    applies_when_separate_entrance: false,
+    regulatory_refs: [
+      'LACORS Housing — Fire Safety (2008) §19',
+      'LACORS Housing — Fire Safety (2008) §20',
+      'Housing Act 2004, s.1 (HHSRS)',
+    ],
+  },
+
+  {
+    id: 'R-S03',
+    title: 'Hidden void continuity may allow fire spread',
+    tier: 'advisory',
+    legal_status: 'advisory',
+    basis: ['LACORS-benchmark', 'advisory'],
+    condition: { type: 'leaf', question_id: 'D17', in_values: ['yes'] },
+    confidence: 'confirmed',
+    risk_basis:
+      'Continuous concealed voids — such as spaces within stud partitions or above suspended ' +
+      'ceilings — can act as hidden fire paths that bypass compartmentation, allowing fire and ' +
+      'smoke to travel between floors or dwellings without passing through any fire-resisting ' +
+      'element. LACORS §20 requires that all such voids be fire-stopped at each floor level.',
+    text:
+      'Concealed voids that run continuously within or alongside the stair enclosure may allow ' +
+      'fire and smoke to spread between dwellings even where the visible surfaces appear ' +
+      'adequate. An investigation to identify the extent of any voids and confirm or install ' +
+      'fire stopping at each floor level is recommended. A qualified fire risk assessor or ' +
+      'contractor should carry out this work.',
+    applies_when_separate_entrance: false,
+    regulatory_refs: [
+      'LACORS Housing — Fire Safety (2008) §20',
+      'Housing Act 2004, s.1 (HHSRS)',
+    ],
+  },
+
+  // =========================================================================
+  // B — External escape route from the upper flat
+  // =========================================================================
+
+  {
+    id: 'R-B01',
+    title: 'Verify external escape route from the upper flat — usability not confirmed',
+    tier: 'advisory',
+    legal_status: 'advisory',
+    basis: ['advisory'],
+    condition: {
+      type: 'classification',
+      field: 'upper_external_escape_viable',
+      in_values: ['unknown'],
+    },
+    confidence: 'confirmed',
+    risk_basis:
+      'The upper flat appears to have an independent external escape route, but its usability ' +
+      'has not been confirmed from the answers provided. An unverified external route cannot ' +
+      'be credited as reducing sole-route dependency on the shared entrance hall and staircase. ' +
+      'Until the route is confirmed as permanently accessible, unobstructed, key-free from ' +
+      'inside, and in sound structural condition, the shared staircase must continue to be ' +
+      'treated as the primary escape route for risk assessment purposes.',
+    text:
+      'The upper flat appears to have an independent external escape route, but its usability ' +
+      'has not been confirmed. Verify the following on site:\n' +
+      '• The route is permanently accessible without a key from inside the flat\n' +
+      '• The route is not obstructed by stored items, locked gates, or physical barriers\n' +
+      '• Any external staircase or structure is in sound structural condition\n' +
+      'Until confirmed, the shared entrance hall and staircase should be treated as the primary ' +
+      'escape route for risk assessment purposes. Update the assessment once the route is verified.',
+    applies_when_separate_entrance: true,
+    regulatory_refs: ['LACORS §14'],
+  },
+
+  {
+    id: 'R-B02',
+    title: 'Restore or repair the external escape route from the upper flat',
+    tier: 'recommended',
+    legal_status: 'lacors_recommendation',
+    basis: ['LACORS-benchmark'],
+    condition: {
+      type: 'and',
+      conditions: [
+        // Independent exit exists (B2 is yes_*)
+        {
+          type: 'classification',
+          field: 'upper_flat_independent_exit',
+          in_values: ['yes'],
+        },
+        // But the route is not viable (obstructed, locked, or poor condition)
+        {
+          type: 'classification',
+          field: 'upper_external_escape_viable',
+          in_values: ['no'],
+        },
+      ],
+    },
+    confidence: 'confirmed',
+    risk_basis:
+      'An independent external escape route exists for the upper flat, but it cannot currently ' +
+      'be relied upon — it is either obstructed, locked, or in poor structural condition. ' +
+      'An inoperable escape route provides no protection at the moment it is needed. Until ' +
+      'repaired or confirmed usable, the shared entrance hall and internal staircase must be ' +
+      'treated as the primary escape route. LACORS §14 requires that escape routes be ' +
+      'accessible and practicable.',
+    text:
+      'The external escape route from the upper flat cannot currently be relied upon. The route ' +
+      'is either obstructed, locked from the inside, or in poor structural condition. Remedial ' +
+      'action is required:\n' +
+      '• Remove any obstruction or stored items blocking the external route\n' +
+      '• Ensure the exit can be opened from the inside without a key\n' +
+      '• Repair any structural defects in the external staircase or platform\n' +
+      'Until the route is fully restored, treat the shared entrance hall and staircase as the ' +
+      'primary escape route and apply staircase compartmentation requirements accordingly.',
+    applies_when_separate_entrance: true,
+    regulatory_refs: ['LACORS §14'],
   },
 ]

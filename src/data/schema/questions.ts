@@ -285,7 +285,7 @@ export const QUESTIONS: Question[] = [
       'front door and internal hall/staircase. Separate entrances means each flat ' +
       'has its own street-level front door with no shared internal space.',
     options: [
-      { value: 'communal', label: 'Yes — shared communal entrance and staircase' },
+      { value: 'communal', label: 'Yes — shared entrance hall (a common internal front door serving both flats)' },
       { value: 'separate', label: 'No — each flat has its own separate entrance' },
     ],
     required: true,
@@ -296,25 +296,117 @@ export const QUESTIONS: Question[] = [
     section: 'B',
     section_position: 2,
     type: 'single-choice',
-    text: 'Does the upper flat have an independent rear exit that does not use the main staircase?',
+    text: 'Does the upper flat have an independent escape route that does not use the shared entrance hall or internal staircase?',
     help_text:
-      'For example, an external rear staircase, a door opening directly to a garden ' +
-      'or outside space, or a fire escape. An independent rear exit provides an ' +
-      'alternative escape route if the main staircase is compromised.',
+      'Answer yes only if the route can be used from inside the upper flat without using ' +
+      'the shared front entrance hall or internal staircase. For example, an external steel ' +
+      'staircase to the rear garden, a rear door opening directly to outside, or another ' +
+      'independent external route.',
     options: [
       {
-        value: 'yes',
-        label: 'Yes — external rear staircase or door to garden / outside',
+        value: 'yes_external_steel_stair',
+        label: 'Yes — external steel staircase to garden or outside',
       },
-      { value: 'no', label: 'No — staircase and front door only' },
+      {
+        value: 'yes_rear_exit',
+        label: 'Yes — rear exit or direct external route to garden / outside',
+      },
+      {
+        value: 'yes_other',
+        label: 'Yes — other independent external escape route',
+      },
+      { value: 'no', label: 'No — shared entrance hall and staircase only' },
+      { value: 'unknown', label: 'Not sure' },
     ],
+    uncertainty_behaviour: 'CONSERVATIVE',
+    required: true,
+    scope: 'upper',
+  },
+  {
+    id: 'B2a',
+    section: 'B',
+    section_position: 3,
+    type: 'single-choice',
+    text: 'Is the external escape route permanently usable and unobstructed?',
+    help_text:
+      'Answer "Yes" only if the route is accessible at all times, requires no key to open ' +
+      'from the inside, and is not blocked by stored items, structures, or locked gates.',
+    show_when: [
+      {
+        when_question: 'B2',
+        has_value: ['yes_external_steel_stair', 'yes_rear_exit', 'yes_other'],
+      },
+    ],
+    options: [
+      { value: 'yes', label: 'Yes — permanently accessible and unobstructed' },
+      { value: 'no_obstructed', label: 'No — obstructed by stored items, structures, or barriers' },
+      { value: 'no_locked_or_unavailable', label: 'No — locked or requires a key from the inside' },
+      { value: 'unknown', label: 'Not sure' },
+    ],
+    uncertainty_behaviour: 'CONSERVATIVE',
+    required: true,
+    scope: 'upper',
+  },
+  {
+    id: 'B2b',
+    section: 'B',
+    section_position: 4,
+    type: 'single-choice',
+    text: 'How is the external escape route reached from inside the upper flat?',
+    show_when: [
+      {
+        when_question: 'B2',
+        has_value: ['yes_external_steel_stair', 'yes_rear_exit', 'yes_other'],
+      },
+    ],
+    options: [
+      {
+        value: 'from_hall_or_landing',
+        label: 'From the flat entrance hall or landing — without passing through a habitable room',
+      },
+      { value: 'through_kitchen_or_living_room', label: 'Through the kitchen or living room' },
+      { value: 'through_bedroom', label: 'Through a bedroom' },
+      { value: 'unknown', label: 'Not sure' },
+    ],
+    uncertainty_behaviour: 'ADVISORY_ONLY',
+    required: true,
+    scope: 'upper',
+  },
+  {
+    id: 'B2c',
+    section: 'B',
+    section_position: 5,
+    type: 'single-choice',
+    text: 'Is the external staircase or escape route in sound structural condition?',
+    help_text:
+      'Assess the structural condition of any external staircase, platform, or exit door ' +
+      'forming the independent escape route.',
+    show_when: [
+      {
+        when_question: 'B2',
+        has_value: ['yes_external_steel_stair', 'yes_rear_exit', 'yes_other'],
+      },
+    ],
+    options: [
+      { value: 'yes', label: 'Yes — sound condition, no visible defects' },
+      {
+        value: 'minor_defects',
+        label: 'Minor defects — surface or cosmetic issues only; structurally sound',
+      },
+      {
+        value: 'poor_condition',
+        label: 'Poor condition — structural defects or significant deterioration visible',
+      },
+      { value: 'unknown', label: 'Not sure' },
+    ],
+    uncertainty_behaviour: 'CONSERVATIVE',
     required: true,
     scope: 'upper',
   },
   {
     id: 'B3',
     section: 'B',
-    section_position: 3,
+    section_position: 6,
     type: 'single-choice',
     text: 'Does the ground floor flat have a rear exit (back door to garden or outside space)?',
     help_text:
@@ -332,7 +424,7 @@ export const QUESTIONS: Question[] = [
   {
     id: 'B4',
     section: 'B',
-    section_position: 4,
+    section_position: 7,
     type: 'single-choice',
     text: 'What is the approximate floor level of the upper flat above external ground?',
     help_text:
@@ -357,7 +449,7 @@ export const QUESTIONS: Question[] = [
   {
     id: 'B5',
     section: 'B',
-    section_position: 5,
+    section_position: 8,
     type: 'single-choice',
     text: 'Is the ground floor raised significantly above street or garden level?',
     help_text:
@@ -375,7 +467,7 @@ export const QUESTIONS: Question[] = [
   {
     id: 'B6',
     section: 'B',
-    section_position: 6,
+    section_position: 9,
     type: 'single-choice',
     text: 'Is the upper flat single-storey, or does it extend across two levels internally?',
     help_text:
@@ -395,19 +487,19 @@ export const QUESTIONS: Question[] = [
   {
     id: 'B7',
     section: 'B',
-    section_position: 7,
+    section_position: 10,
     type: 'single-choice',
     text:
       'Is there direct access to outside from the foot of the main staircase without ' +
       'passing through any other room or door?',
     help_text:
-      'In the ideal escape route configuration, the building entrance door opens directly from the ' +
+      'In the ideal escape route configuration, the final exit door opens directly from the ' +
       'foot of the staircase to the street or garden. An intermediate room or a ' +
       'secondary locked door worsens the escape route.',
     options: [
       {
         value: 'yes',
-        label: 'Yes — building entrance door opens directly to street or garden from foot of stairs',
+        label: 'Yes — final exit door opens directly to street or garden from foot of stairs',
       },
       {
         value: 'no',
@@ -421,7 +513,7 @@ export const QUESTIONS: Question[] = [
   {
     id: 'B8',
     section: 'B',
-    section_position: 8,
+    section_position: 11,
     type: 'single-choice',
     text:
       'In the upper flat, approximately how far is it from the furthest point of any ' +
@@ -1022,7 +1114,7 @@ export const QUESTIONS: Question[] = [
     type: 'single-choice',
     text:
       'Is there a cupboard, storage space, or meter cupboard within or directly off ' +
-      'the communal staircase?',
+      'the shared entrance hall or staircase?',
     show_when: [{ when_question: 'B1', has_value: 'communal' }],
     options: [
       { value: 'no', label: 'No' },
@@ -1122,11 +1214,11 @@ export const QUESTIONS: Question[] = [
     section_position: 9,
     type: 'multi-choice',
     text:
-      'Are any of the following present in the communal staircase or entrance area? ' +
+      'Are any of the following present in the shared entrance hall or staircase? ' +
       'Select all that apply.',
     help_text:
       'LACORS explicitly considers ignition risk and fuel load in the escape route. ' +
-      'Any combustible material stored in the communal area materially increases risk ' +
+      'Any combustible material stored in the shared entrance area materially increases risk ' +
       'because it provides fuel for a fire that would block the only escape.',
     show_when: [{ when_question: 'B1', has_value: 'communal' }],
     options: [
@@ -1144,6 +1236,211 @@ export const QUESTIONS: Question[] = [
       },
       { value: 'none', label: 'None of the above' },
       { value: 'not_sure', label: 'Not sure' },
+    ],
+    required: true,
+    scope: 'common',
+  },
+
+  // =========================================================================
+  // Section D — Stair enclosure compartmentation (D10–D18)
+  // These questions build an evidence-based picture of whether the staircase
+  // enclosure provides meaningful fire compartmentation. Rather than asking
+  // "is it fire resistant?" (which no visual inspection can confirm), they ask
+  // what observable evidence exists that it probably does or does not.
+  // =========================================================================
+  {
+    id: 'D10',
+    section: 'D',
+    section_position: 10,
+    type: 'single-choice',
+    text: 'What is the main construction material of the stair enclosure walls?',
+    help_text:
+      'The stair enclosure is often the single most important fire separation element in a ' +
+      'converted building. Masonry provides inherent fire resistance; plasterboard performance ' +
+      'depends on thickness and board type; timber panelling provides negligible resistance.',
+    show_when: [{ when_question: 'B1', has_value: 'communal' }],
+    options: [
+      { value: 'masonry', label: 'Brick or masonry' },
+      { value: 'plasterboard', label: 'Plasterboard (stud partition or board lining)' },
+      { value: 'lath_plaster', label: 'Lath and plaster' },
+      { value: 'timber_panelling', label: 'Timber panelling or boarding' },
+      { value: 'mixed', label: 'Mixed — different materials in different sections' },
+      { value: 'unknown', label: 'Unknown' },
+    ],
+    uncertainty_behaviour: 'CONSERVATIVE',
+    required: true,
+    scope: 'common',
+  },
+  {
+    id: 'D11',
+    section: 'D',
+    section_position: 11,
+    type: 'single-choice',
+    text: 'What period was this conversion carried out?',
+    help_text:
+      'Conversion period gives context to likely construction standards. Pre-1950 conversions ' +
+      'and 1950–1970 conversions often used materials and techniques that do not meet modern ' +
+      'compartmentation standards. Combined with low inspection confidence, the period affects ' +
+      'how much weight can be placed on visual assessment alone.',
+    show_when: [{ when_question: 'B1', has_value: 'communal' }],
+    options: [
+      { value: 'pre_1950', label: 'Before 1950' },
+      { value: '1950_1970', label: '1950–1970' },
+      { value: '1970_1991', label: '1971–1991' },
+      { value: 'post_1991', label: '1992 or later' },
+      { value: 'unknown', label: 'Unknown' },
+    ],
+    uncertainty_behaviour: 'ADVISORY_ONLY',
+    required: true,
+    scope: 'common',
+  },
+  {
+    id: 'D12',
+    section: 'D',
+    section_position: 12,
+    type: 'single-choice',
+    text: 'What is the approximate board thickness of the stair enclosure lining?',
+    help_text:
+      '12.5mm plasterboard provides approximately 30 minutes fire resistance (LACORS §19.5). ' +
+      '9.5mm provides substantially less. Under 9.5mm (including hardboard) provides negligible ' +
+      'fire resistance. Double-layer or fire-rated board systems provide 60 minutes or more.',
+    show_when: [
+      { when_question: 'B1', has_value: 'communal' },
+      { when_question: 'D10', has_value: ['plasterboard', 'lath_plaster', 'mixed', 'unknown'] },
+    ],
+    options: [
+      { value: 'under_9_5', label: 'Under 9.5mm — thin board (e.g. 6mm hardboard or thin ply)' },
+      { value: '9_5', label: '9.5mm — standard lightweight plasterboard' },
+      { value: '12_5', label: '12.5mm — standard plasterboard (approximately 30-minute fire resistance)' },
+      { value: 'double_layer', label: 'Double layer or over 25mm total — heavy or fire-rated board system' },
+      { value: 'unknown', label: 'Unknown — cannot determine thickness without measurement' },
+    ],
+    uncertainty_behaviour: 'CONSERVATIVE',
+    required: true,
+    scope: 'common',
+  },
+  {
+    id: 'D13',
+    section: 'D',
+    section_position: 13,
+    type: 'single-choice',
+    text: 'Is the stair enclosure board fire resistant (Type F or fire-rated grade)?',
+    help_text:
+      'Standard plasterboard has some fire resistance by mass but is not specifically rated. ' +
+      'Fire-resistant plasterboard (BS EN 520 Type F) contains glass fibre reinforcement and ' +
+      'achieves a better fire performance for the same nominal thickness.',
+    show_when: [
+      { when_question: 'B1', has_value: 'communal' },
+      { when_question: 'D10', has_value: ['plasterboard', 'lath_plaster', 'mixed', 'unknown'] },
+    ],
+    options: [
+      { value: 'standard', label: 'Standard plasterboard — not specifically fire rated' },
+      { value: 'fire_resistant', label: 'Fire resistant plasterboard (Type F or fire-rated grade)' },
+      { value: 'unknown', label: 'Unknown' },
+    ],
+    uncertainty_behaviour: 'ADVISORY_ONLY',
+    required: true,
+    scope: 'common',
+  },
+  {
+    id: 'D14',
+    section: 'D',
+    section_position: 14,
+    type: 'single-choice',
+    text: 'What level of inspection was carried out on the stair enclosure construction?',
+    help_text:
+      'This question records how much evidence was obtained. Visual-only inspection cannot ' +
+      'confirm what lies behind a surface finish. Edge-visible or intrusive inspection provides ' +
+      'more reliable evidence. The confidence level affects how strongly compartmentation ' +
+      'conclusions can be drawn.',
+    show_when: [{ when_question: 'B1', has_value: 'communal' }],
+    options: [
+      { value: 'visual_only', label: 'Visual only — surface inspection, no access to inside of the construction' },
+      { value: 'edge_visible', label: 'Edge visible — board edge visible at a junction, thickness estimated' },
+      { value: 'inspection_opening', label: 'Inspection opening — an opening exists or was made to view the inside' },
+      { value: 'intrusive_confirmed', label: 'Intrusive inspection confirmed — full access obtained and construction confirmed' },
+    ],
+    required: true,
+    scope: 'common',
+  },
+  {
+    id: 'D15',
+    section: 'D',
+    section_position: 15,
+    type: 'single-choice',
+    text: 'Are there visible penetrations through the stair enclosure walls or ceiling?',
+    help_text:
+      'Unsealed penetrations (old pipe chases, cable runs, redundant holes) allow fire and ' +
+      'smoke to bypass the enclosure even where the main lining is otherwise adequate. ' +
+      'Fire stopping all penetrations is a LACORS §20 requirement.',
+    show_when: [{ when_question: 'B1', has_value: 'communal' }],
+    options: [
+      { value: 'none', label: 'None visible — surfaces appear intact with no penetrations' },
+      { value: 'sealed', label: 'Penetrations present but sealed — fire-stopped around pipes or cables' },
+      { value: 'unsealed', label: 'Unsealed penetrations — visible gaps around pipes, cables, or redundant holes' },
+      { value: 'unknown', label: 'Unknown — surfaces not fully inspected' },
+    ],
+    uncertainty_behaviour: 'CONSERVATIVE',
+    required: true,
+    scope: 'common',
+  },
+  {
+    id: 'D16',
+    section: 'D',
+    section_position: 16,
+    type: 'single-choice',
+    text: 'Does the stair enclosure run continuously from ground level to the top of the building without gaps or breaks?',
+    help_text:
+      'A stair enclosure that is incomplete — for example where a section of wall is missing, ' +
+      'replaced with open balustrade, or interrupted by a mezzanine or loft conversion — ' +
+      'does not provide continuous compartmentation. Any break in continuity significantly ' +
+      'reduces its effectiveness as a fire barrier.',
+    show_when: [{ when_question: 'B1', has_value: 'communal' }],
+    options: [
+      { value: 'yes', label: 'Yes — the enclosure appears continuous from ground to top' },
+      { value: 'no', label: 'No — there are gaps, breaks, or incomplete sections in the enclosure' },
+      { value: 'unknown', label: 'Unknown' },
+    ],
+    uncertainty_behaviour: 'CONSERVATIVE',
+    required: true,
+    scope: 'common',
+  },
+  {
+    id: 'D17',
+    section: 'D',
+    section_position: 17,
+    type: 'single-choice',
+    text: 'Are there concealed voids or spaces within or running alongside the stair enclosure?',
+    help_text:
+      'Concealed voids — such as spaces inside stud partitions, beneath the stair casing, ' +
+      'or above suspended ceilings — can act as hidden fire paths between floors or dwellings ' +
+      'if they are not fire-stopped at each floor level. This is a known risk in conversions ' +
+      'where the original house structure has been subdivided.',
+    show_when: [{ when_question: 'B1', has_value: 'communal' }],
+    options: [
+      { value: 'yes', label: 'Yes — hidden voids or spaces are present or suspected' },
+      { value: 'no', label: 'No — no concealed voids identified' },
+      { value: 'unknown', label: 'Unknown' },
+    ],
+    uncertainty_behaviour: 'RISK_ELEVATE',
+    required: true,
+    scope: 'common',
+  },
+  {
+    id: 'D18',
+    section: 'D',
+    section_position: 18,
+    type: 'single-choice',
+    text: 'Is the staircase the only shared escape route for both flats?',
+    help_text:
+      'Where the staircase is the sole escape route, any failure of its compartmentation ' +
+      'affects both households simultaneously. Where at least one flat has an independent ' +
+      'escape route, the risk profile changes and some compartmentation requirements are ' +
+      'less critical.',
+    show_when: [{ when_question: 'B1', has_value: 'communal' }],
+    options: [
+      { value: 'yes', label: 'Yes — the staircase is the sole shared escape route for both flats' },
+      { value: 'no', label: 'No — at least one flat has an independent escape route not using this staircase' },
     ],
     required: true,
     scope: 'common',
@@ -1321,18 +1618,16 @@ export const QUESTIONS: Question[] = [
   // Section F — Doors and Egress
   // =========================================================================
   {
-    id: 'F1',
+    id: 'F1a',
     section: 'F',
     section_position: 1,
     type: 'single-choice',
     text:
-      'Is a functioning self-closing device fitted to each flat\'s entrance door ' +
-      '(the door between the flat interior and the communal hallway or the street)?',
+      'Is a functioning self-closing device fitted to the ground-floor flat entrance door?',
     help_text:
-      'LACORS §21.5 states that the entrance door to each self-contained flat should be ' +
-      'fitted with a self-closing device. The "flat entrance door" is the door that separates ' +
-      'the interior of the flat from the communal staircase or street — not an internal room ' +
-      'door within the flat, and not the building\'s front door. ' +
+      'The flat entrance door separating the ground-floor flat from the shared entrance hall ' +
+      'or escape route. LACORS §21.5 states that the entrance door to each self-contained flat ' +
+      'should be fitted with a self-closing device. ' +
       'A working self-closer pulls the door fully shut so the latch engages without ' +
       'manual assistance. If a device is fitted but the door does not pull fully closed, ' +
       'choose "Fitted but not functioning correctly."',
@@ -1349,15 +1644,44 @@ export const QUESTIONS: Question[] = [
       { value: 'not_sure', label: 'Not sure' },
     ],
     required: true,
+    scope: 'ground',
+  },
+  {
+    id: 'F1b',
+    section: 'F',
+    section_position: 2,
+    type: 'single-choice',
+    text:
+      'Is a functioning self-closing device fitted to the upper-flat entrance door?',
+    help_text:
+      'The door at the bottom of the staircase (or at the flat entrance) separating the ' +
+      'upper flat from the shared entrance hall or escape route. ' +
+      'A working self-closer pulls the door fully shut so the latch engages without ' +
+      'manual assistance. If a device is fitted but the door does not pull fully closed, ' +
+      'choose "Fitted but not functioning correctly."',
+    options: [
+      {
+        value: 'functioning_self_closer',
+        label: 'Yes — a functioning self-closer is fitted and pulls the door fully closed',
+      },
+      {
+        value: 'fitted_not_working',
+        label: 'Fitted but not functioning correctly — door does not pull fully shut',
+      },
+      { value: 'not_fitted', label: 'No self-closing device fitted' },
+      { value: 'not_sure', label: 'Not sure' },
+    ],
+    required: true,
+    scope: 'upper',
   },
   {
     id: 'F2',
     section: 'F',
-    section_position: 2,
+    section_position: 3,
     type: 'single-choice',
     text: 'What type of door is each flat\'s entrance door?',
     help_text:
-      'This refers to the door between each flat and the communal hallway (or street), ' +
+      'This refers to the door between each flat and the shared entrance hall (or street), ' +
       'not the building\'s front door. ' +
       'A solid timber door of at least 44mm thickness provides some fire resistance. ' +
       'A hollow-core door provides minimal fire resistance. An FD30S fire doorset is ' +
@@ -1383,7 +1707,7 @@ export const QUESTIONS: Question[] = [
   {
     id: 'F3',
     section: 'F',
-    section_position: 3,
+    section_position: 4,
     type: 'single-choice',
     text:
       'Does each flat\'s entrance door fit and latch properly when closed — ' +
@@ -1403,14 +1727,14 @@ export const QUESTIONS: Question[] = [
   {
     id: 'F4',
     section: 'F',
-    section_position: 4,
+    section_position: 5,
     type: 'single-choice',
     text:
       'Does each flat\'s entrance door have intumescent seals and/or smoke seals ' +
       'around the door edges?',
     help_text:
       'This refers to each flat\'s entrance door — the door between the flat and the ' +
-      'communal hallway. Intumescent seals expand in fire to seal the gap around the door. ' +
+      'shared entrance hall. Intumescent seals expand in fire to seal the gap around the door. ' +
       'Smoke seals reduce smoke ingress at lower temperatures. Both are part of the FD30S ' +
       'fire door specification. A door that is not an FD30S is unlikely to have these.',
     options: [
@@ -1427,7 +1751,7 @@ export const QUESTIONS: Question[] = [
   {
     id: 'F5',
     section: 'F',
-    section_position: 5,
+    section_position: 6,
     type: 'single-choice',
     text:
       'Does the flat entrance door, or any door on the escape route within the flat, ' +
@@ -1454,19 +1778,41 @@ export const QUESTIONS: Question[] = [
     required: true,
   },
   {
-    id: 'F6',
+    id: 'F6a',
     section: 'F',
-    section_position: 6,
+    section_position: 7,
     type: 'single-choice',
     text:
-      'Does the building entrance door (the shared front door giving access to the ' +
-      'communal staircase) have a self-closing device?',
+      'Is there a shared entrance hall, corridor, or staircase used as an escape route ' +
+      'by more than one household?',
     help_text:
-      'The building entrance door is the main front door through which both flats are ' +
-      'accessed — not the individual flat entrance doors. A self-closer on the building ' +
-      'entrance door limits unauthorised access and prevents the door being left open, ' +
-      'which could allow smoke from outside to enter the communal escape route.',
+      'Answer "Yes" if both the ground-floor flat and the upper flat depend on the same ' +
+      'internal hall or staircase to reach the final exit. This is typically the case in a ' +
+      'converted house where a single shared front door leads to a hall from which the ' +
+      'ground-floor flat opens and a staircase leads to the upper flat. Answer "No" only if ' +
+      'each flat has a completely independent exit that does not pass through any shared internal space.',
     show_when: [{ when_question: 'B1', has_value: 'communal' }],
+    options: [
+      { value: 'yes', label: 'Yes — both flats depend on the same shared hall or staircase to exit' },
+      { value: 'no', label: 'No — each flat has an independent exit not shared with the other' },
+      { value: 'unknown', label: 'Not sure' },
+    ],
+    uncertainty_behaviour: 'CONSERVATIVE',
+    required: true,
+    scope: 'common',
+  },
+  {
+    id: 'F6b',
+    section: 'F',
+    section_position: 8,
+    type: 'single-choice',
+    text:
+      'Does the main building entrance / final exit door have a self-closing device?',
+    help_text:
+      'The final exit door from the building to the outside — the shared front door at ' +
+      'street level. A self-closer ensures this door returns to a closed position after use, ' +
+      'maintaining smoke containment in the shared escape route and limiting unauthorised access.',
+    show_when: [{ when_question: 'F6a', has_value: 'yes' }],
     options: [
       { value: 'yes', label: 'Yes — functioning self-closer fitted' },
       { value: 'fitted_not_working', label: 'Fitted but not functioning correctly' },
@@ -1620,11 +1966,11 @@ export const QUESTIONS: Question[] = [
     section: 'H',
     section_position: 1,
     type: 'single-choice',
-    text: 'Is the communal staircase and entrance hall kept clear of combustible materials and obstructions?',
+    text: 'Is the shared entrance hall and staircase kept clear of combustible materials and obstructions?',
     help_text:
       'LACORS places significant weight on management quality as a risk factor. ' +
-      'The communal staircase is the primary escape route for the upper flat and a shared ' +
-      'route for both. Any combustible materials stored here increase both ignition risk ' +
+      'The shared entrance hall and staircase serving the upper flat form the primary escape route. ' +
+      'Any combustible materials stored here increase both ignition risk ' +
       'and the risk of blocking the only escape. Answer based on the current typical ' +
       'condition — not a one-off clearance done recently.',
     show_when: [{ when_question: 'B1', has_value: 'communal' }],

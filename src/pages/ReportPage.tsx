@@ -32,7 +32,7 @@ import {
   isShareLinkSupported,
 } from '../persistence/localStorageAdapter'
 import type { ActiveRemedy } from '../engine/remedyEngine'
-import type { UnresolvedFact, RiskDimensionSummary, PropertyTypeSummary } from '../engine/reportGenerator'
+import type { UnresolvedFact, RiskDimensionSummary, PropertyTypeSummary, StairCompartmentationSummary, UpperFlatEscapeStrategySummary } from '../engine/reportGenerator'
 
 type ShareStatus = 'idle' | 'copying' | 'copied' | 'too-large' | 'error' | 'unsupported'
 
@@ -128,6 +128,18 @@ export default function ReportPage() {
           <RiskDimensionTable dimensions={report.risk_dimension_summary} />
         )}
       </section>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Stair compartmentation summary                                       */}
+      {/* ------------------------------------------------------------------ */}
+      {report.stair_compartmentation.applicable && (
+        <StairCompartmentationSection summary={report.stair_compartmentation} />
+      )}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Upper flat escape strategy                                           */}
+      {/* ------------------------------------------------------------------ */}
+      <UpperFlatEscapeStrategySection summary={report.upper_flat_escape_strategy} />
 
       {/* ------------------------------------------------------------------ */}
       {/* Classification                                                       */}
@@ -467,6 +479,72 @@ function PropertyFrameworkSummary({ summary }: { summary: PropertyTypeSummary })
         <dd>{summary.lacors_benchmark_applied ? 'Yes' : 'No'}</dd>
         <dt>How LACORS is used</dt>
         <dd>{summary.lacors_application_note}</dd>
+      </dl>
+    </section>
+  )
+}
+
+function StairCompartmentationSection({ summary }: { summary: StairCompartmentationSummary }) {
+  const riskClass =
+    summary.risk_level === 'High' ? 'risk-level-badge--high'
+    : summary.risk_level === 'Elevated' ? 'risk-level-badge--elevated'
+    : summary.risk_level === 'Normal' ? 'risk-level-badge--normal'
+    : 'risk-level-badge--low'
+
+  return (
+    <section className="report-section report-section--stair-compartmentation">
+      <h2>Stair Compartmentation Assessment</h2>
+      <p className="tier-description">
+        The staircase enclosure is typically the single most important fire separation element
+        in a converted building. The following summary reflects the observable evidence obtained
+        during the assessment.
+      </p>
+      <dl className="stair-compartmentation-summary">
+        <dt>Construction material</dt>
+        <dd>{summary.construction}</dd>
+        {summary.board_thickness !== null && (
+          <>
+            <dt>Board thickness</dt>
+            <dd>{summary.board_thickness}</dd>
+          </>
+        )}
+        <dt>Inspection confidence</dt>
+        <dd>{summary.inspection_confidence}</dd>
+        <dt>Penetrations</dt>
+        <dd>{summary.penetrations}</dd>
+        <dt>Compartmentation confidence</dt>
+        <dd>{summary.compartmentation_confidence}</dd>
+        <dt>Stair enclosure risk level</dt>
+        <dd>
+          <span className={`risk-level-badge risk-level-badge--small ${riskClass}`}>
+            {summary.risk_level}
+          </span>
+        </dd>
+      </dl>
+    </section>
+  )
+}
+
+function UpperFlatEscapeStrategySection({ summary }: { summary: UpperFlatEscapeStrategySummary }) {
+  return (
+    <section className="report-section report-section--escape-strategy">
+      <h2>Upper Flat Escape Strategy</h2>
+      <p className="tier-description">{summary.narrative}</p>
+      <dl className="escape-strategy-summary">
+        <dt>Shared entrance hall / communal route</dt>
+        <dd>{summary.shared_route_exists}</dd>
+        <dt>Independent external escape route</dt>
+        <dd>{summary.independent_escape}</dd>
+        {summary.independent_escape === 'Yes' && (
+          <>
+            <dt>External escape type</dt>
+            <dd>{summary.escape_type}</dd>
+            <dt>Route viability</dt>
+            <dd>{summary.viability}</dd>
+          </>
+        )}
+        <dt>Upper flat dependency on shared route</dt>
+        <dd>{summary.shared_route_dependency}</dd>
       </dl>
     </section>
   )

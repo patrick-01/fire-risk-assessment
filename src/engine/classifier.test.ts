@@ -326,8 +326,8 @@ describe('classify — inner room detection', () => {
 // ---------------------------------------------------------------------------
 
 describe('classify — upper flat independent exit', () => {
-  it('returns yes when B2=yes', () => {
-    const c = classify({ ...s257(), B2: a('yes') })
+  it('returns yes when B2=yes_external_steel_stair', () => {
+    const c = classify({ ...s257(), B2: a('yes_external_steel_stair') })
     expect(c.upper_flat_independent_exit).toBe('yes')
   })
 
@@ -434,6 +434,7 @@ const communalCtx = {
   },
   inner_room_present: 'no' as const,
   upper_flat_independent_exit: 'yes' as const,
+  upper_external_escape_viable: 'yes' as const,
 }
 
 const separateCtx = { ...communalCtx, separate_entrance_mode: true }
@@ -559,6 +560,7 @@ describe('computeRiskFactors — escape', () => {
         living_room: 'unknown' as const,
       },
       upper_flat_independent_exit: 'no' as const,
+      upper_external_escape_viable: 'no' as const,
     }
     const { factors } = computeRiskFactors({}, ctx)
     expect(factors).toContain('RF-C01')

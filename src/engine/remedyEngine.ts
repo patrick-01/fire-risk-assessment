@@ -107,6 +107,12 @@ function evaluateCondition(
         value = classification.inner_room_present
       } else if (field === 'upper_flat_independent_exit') {
         value = classification.upper_flat_independent_exit
+      } else if (field === 'upper_independent_escape_type') {
+        value = classification.upper_independent_escape_type
+      } else if (field === 'upper_external_escape_viable') {
+        value = classification.upper_external_escape_viable
+      } else if (field === 'upper_shared_route_dependency') {
+        value = classification.upper_shared_route_dependency
       } else if (field === 'ground_floor_escape_strategy') {
         value = classification.ground_floor_escape_strategy
       } else if (field === 'upper_floor_escape_strategy') {

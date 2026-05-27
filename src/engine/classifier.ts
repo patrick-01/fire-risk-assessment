@@ -73,6 +73,12 @@ export const RISK_FACTOR_DIMENSIONS: Record<
   'RF-H02': 'management',
   'RF-H03': 'management',
   'RF-H04': 'management',
+  'RF-S01': 'construction',
+  'RF-S02': 'construction',
+  'RF-S03': 'construction',
+  'RF-S04': 'construction',
+  'RF-S05': 'construction',
+  'RF-S06': 'construction',
 }
 
 // ---------------------------------------------------------------------------
@@ -105,6 +111,7 @@ export function classify(answers: AnswerMap): Classification {
 
   const communalEntrance = deriveCommunalEntrance(B1)
   const separateEntranceMode = communalEntrance === 'false'
+  const sharedEscapeRoute = deriveSharedEscapeRoute(answers, B1)
 
   // Step 2: Out-of-scope triggers → not-section-257 (with full risk scoring)
   // Note: A4='one_owner_occupied' is NO LONGER treated as out-of-scope.
@@ -122,6 +129,9 @@ export function classify(answers: AnswerMap): Classification {
     const escapeWindows = assessEscapeWindows(answers)
     const innerRoom = deriveInnerRoomPresent(answers)
     const upperFlatExit = deriveUpperFlatExit(B2)
+    const upperIndependentEscapeType = deriveUpperIndependentEscapeType(B2)
+    const upperExternalEscapeViable = deriveUpperExternalEscapeViable(answers, B2)
+    const upperSharedRouteDependency = deriveUpperSharedRouteDependency(sharedEscapeRoute, upperFlatExit, upperExternalEscapeViable)
     const groundFloorEscape = deriveGroundFloorEscapeStrategy(answers)
     const upperFloorEscape = deriveUpperFloorEscapeStrategy(B2, escapeWindows)
 
@@ -131,6 +141,7 @@ export function classify(answers: AnswerMap): Classification {
       escape_windows: escapeWindows,
       inner_room_present: innerRoom,
       upper_flat_independent_exit: upperFlatExit,
+      upper_external_escape_viable: upperExternalEscapeViable,
     })
 
     return {
@@ -138,7 +149,11 @@ export function classify(answers: AnswerMap): Classification {
       benchmark: 'not-applicable',
       communal_entrance: communalEntrance,
       separate_entrance_mode: separateEntranceMode,
+      shared_escape_route: sharedEscapeRoute,
       upper_flat_independent_exit: upperFlatExit,
+      upper_independent_escape_type: upperIndependentEscapeType,
+      upper_external_escape_viable: upperExternalEscapeViable,
+      upper_shared_route_dependency: upperSharedRouteDependency,
       inner_room_present: innerRoom,
       escape_windows: escapeWindows,
       confidence: 'confirmed',
@@ -146,6 +161,8 @@ export function classify(answers: AnswerMap): Classification {
       risk_level: scoreToRiskLevel(score),
       risk_score: score,
       risk_factors_present: factors,
+      stair_compartmentation_confidence: computeStairCompartmentationConfidence(answers, separateEntranceMode),
+      stair_compartmentation_risk: computeStairCompartmentationRisk(factors, separateEntranceMode),
       ground_floor_escape_strategy: groundFloorEscape,
       upper_floor_escape_strategy: upperFloorEscape,
     }
@@ -196,6 +213,9 @@ export function classify(answers: AnswerMap): Classification {
   const escapeWindows = assessEscapeWindows(answers)
   const innerRoom = deriveInnerRoomPresent(answers)
   const upperFlatExit = deriveUpperFlatExit(B2)
+  const upperIndependentEscapeType = deriveUpperIndependentEscapeType(B2)
+  const upperExternalEscapeViable = deriveUpperExternalEscapeViable(answers, B2)
+  const upperSharedRouteDependency = deriveUpperSharedRouteDependency(sharedEscapeRoute, upperFlatExit, upperExternalEscapeViable)
 
   // Step 3a: Some criteria questions not yet answered → unresolved.
   // Note: 'blocked' alone (BLOCK_CLASS uncertainty on a non-criteria question) does NOT
@@ -206,7 +226,11 @@ export function classify(answers: AnswerMap): Classification {
       benchmark: 'unknown',
       communal_entrance: communalEntrance,
       separate_entrance_mode: separateEntranceMode,
+      shared_escape_route: sharedEscapeRoute,
       upper_flat_independent_exit: upperFlatExit,
+      upper_independent_escape_type: upperIndependentEscapeType,
+      upper_external_escape_viable: upperExternalEscapeViable,
+      upper_shared_route_dependency: upperSharedRouteDependency,
       inner_room_present: innerRoom,
       escape_windows: escapeWindows,
       confidence: 'unresolved',
@@ -214,6 +238,8 @@ export function classify(answers: AnswerMap): Classification {
       risk_level: 'unresolved',
       risk_score: 0,
       risk_factors_present: [],
+      stair_compartmentation_confidence: 'unknown',
+      stair_compartmentation_risk: 'low',
       ground_floor_escape_strategy: deriveGroundFloorEscapeStrategy(answers),
       upper_floor_escape_strategy: deriveUpperFloorEscapeStrategy(B2, escapeWindows),
     }
@@ -230,7 +256,11 @@ export function classify(answers: AnswerMap): Classification {
       benchmark: 'unknown',
       communal_entrance: communalEntrance,
       separate_entrance_mode: separateEntranceMode,
+      shared_escape_route: sharedEscapeRoute,
       upper_flat_independent_exit: upperFlatExit,
+      upper_independent_escape_type: upperIndependentEscapeType,
+      upper_external_escape_viable: upperExternalEscapeViable,
+      upper_shared_route_dependency: upperSharedRouteDependency,
       inner_room_present: innerRoom,
       escape_windows: escapeWindows,
       confidence: 'unresolved',
@@ -238,6 +268,8 @@ export function classify(answers: AnswerMap): Classification {
       risk_level: 'unresolved',
       risk_score: 0,
       risk_factors_present: [],
+      stair_compartmentation_confidence: 'unknown',
+      stair_compartmentation_risk: 'low',
       ground_floor_escape_strategy: deriveGroundFloorEscapeStrategy(answers),
       upper_floor_escape_strategy: deriveUpperFloorEscapeStrategy(B2, escapeWindows),
     }
@@ -253,13 +285,18 @@ export function classify(answers: AnswerMap): Classification {
       escape_windows: escapeWindows,
       inner_room_present: innerRoom,
       upper_flat_independent_exit: upperFlatExit,
+      upper_external_escape_viable: upperExternalEscapeViable,
     })
     return {
       type: 'not-section-257',
       benchmark: 'not-applicable',
       communal_entrance: communalEntrance,
       separate_entrance_mode: separateEntranceMode,
+      shared_escape_route: sharedEscapeRoute,
       upper_flat_independent_exit: upperFlatExit,
+      upper_independent_escape_type: upperIndependentEscapeType,
+      upper_external_escape_viable: upperExternalEscapeViable,
+      upper_shared_route_dependency: upperSharedRouteDependency,
       inner_room_present: innerRoom,
       escape_windows: escapeWindows,
       confidence: 'confirmed',
@@ -267,6 +304,8 @@ export function classify(answers: AnswerMap): Classification {
       risk_level: scoreToRiskLevel(score),
       risk_score: score,
       risk_factors_present: factors,
+      stair_compartmentation_confidence: computeStairCompartmentationConfidence(answers, separateEntranceMode),
+      stair_compartmentation_risk: computeStairCompartmentationRisk(factors, separateEntranceMode),
       ground_floor_escape_strategy: deriveGroundFloorEscapeStrategy(answers),
       upper_floor_escape_strategy: deriveUpperFloorEscapeStrategy(B2, escapeWindows),
     }
@@ -297,6 +336,7 @@ export function classify(answers: AnswerMap): Classification {
     escape_windows: escapeWindows,
     inner_room_present: innerRoom,
     upper_flat_independent_exit: upperFlatExit,
+    upper_external_escape_viable: upperExternalEscapeViable,
   })
 
   return {
@@ -304,7 +344,11 @@ export function classify(answers: AnswerMap): Classification {
     benchmark: 'D10',
     communal_entrance: communalEntrance,
     separate_entrance_mode: separateEntranceMode,
+    shared_escape_route: sharedEscapeRoute,
     upper_flat_independent_exit: upperFlatExit,
+    upper_independent_escape_type: upperIndependentEscapeType,
+    upper_external_escape_viable: upperExternalEscapeViable,
+    upper_shared_route_dependency: upperSharedRouteDependency,
     inner_room_present: innerRoom,
     escape_windows: escapeWindows,
     confidence,
@@ -312,6 +356,8 @@ export function classify(answers: AnswerMap): Classification {
     risk_level: scoreToRiskLevel(score),
     risk_score: score,
     risk_factors_present: factors,
+    stair_compartmentation_confidence: computeStairCompartmentationConfidence(answers, separateEntranceMode),
+    stair_compartmentation_risk: computeStairCompartmentationRisk(factors, separateEntranceMode),
     ground_floor_escape_strategy: deriveGroundFloorEscapeStrategy(answers),
     upper_floor_escape_strategy: deriveUpperFloorEscapeStrategy(B2, escapeWindows),
   }
@@ -327,9 +373,62 @@ function deriveCommunalEntrance(B1: AnswerValue): CommunalEntranceType {
   return 'unknown'
 }
 
+/**
+ * Derives whether the shared entrance hall / staircase is used as an escape
+ * route by more than one household (from F6a answer, or B1 for separate-entrance).
+ */
+function deriveSharedEscapeRoute(
+  answers: AnswerMap,
+  B1: AnswerValue
+): Classification['shared_escape_route'] {
+  if (B1 === 'separate') return 'no'
+  if (B1 !== 'communal') return 'unknown'
+  const F6a = answers['F6a']?.value
+  if (F6a === 'yes') return 'yes'
+  if (F6a === 'no') return 'no'
+  return 'unknown'
+}
+
 function deriveUpperFlatExit(B2: AnswerValue): Classification['upper_flat_independent_exit'] {
-  if (B2 === 'yes') return 'yes'
+  if (B2 === 'yes_external_steel_stair' || B2 === 'yes_rear_exit' || B2 === 'yes_other') return 'yes'
   if (B2 === 'no') return 'no'
+  return 'unknown'
+}
+
+function deriveUpperIndependentEscapeType(B2: AnswerValue): Classification['upper_independent_escape_type'] {
+  if (B2 === 'yes_external_steel_stair') return 'external_steel_stair'
+  if (B2 === 'yes_rear_exit') return 'rear_exit'
+  if (B2 === 'yes_other') return 'other'
+  if (B2 === 'no') return 'none'
+  return 'unknown'
+}
+
+function deriveUpperExternalEscapeViable(
+  answers: AnswerMap,
+  B2: AnswerValue
+): Classification['upper_external_escape_viable'] {
+  if (!B2 || B2 === 'no') return 'no'
+  if (B2 === 'unknown') return 'unknown'
+  // B2 is a yes_* value — check follow-up answers for actual viability
+  const B2a = answers['B2a']?.value
+  const B2c = answers['B2c']?.value
+  // Explicitly not viable
+  if (B2a === 'no_obstructed' || B2a === 'no_locked_or_unavailable') return 'no'
+  if (B2c === 'poor_condition') return 'no'
+  // Viable when usability confirmed and condition is acceptable
+  if (B2a === 'yes' && (B2c === 'yes' || B2c === 'minor_defects' || B2c === undefined || B2c === null)) return 'yes'
+  return 'unknown'
+}
+
+function deriveUpperSharedRouteDependency(
+  sharedEscapeRoute: Classification['shared_escape_route'],
+  upperFlatIndependentExit: Classification['upper_flat_independent_exit'],
+  upperExternalEscapeViable: Classification['upper_external_escape_viable']
+): Classification['upper_shared_route_dependency'] {
+  if (sharedEscapeRoute === 'no') return 'not_relied_on'
+  if (upperFlatIndependentExit === 'no') return 'sole_route'
+  if (upperFlatIndependentExit === 'yes' && upperExternalEscapeViable === 'yes') return 'secondary_route'
+  if (upperFlatIndependentExit === 'yes') return 'primary_route'
   return 'unknown'
 }
 
@@ -382,7 +481,7 @@ function deriveUpperFloorEscapeStrategy(
   B2: string | number | boolean | null | undefined,
   escapeWindows: EscapeWindowAssessment
 ): Classification['upper_floor_escape_strategy'] {
-  if (B2 === 'yes') return 'via_rear_exit'
+  if (B2 === 'yes_external_steel_stair' || B2 === 'yes_rear_exit' || B2 === 'yes_other') return 'via_rear_exit'
   const anyWindowQualifies =
     escapeWindows.bedroom_1 === 'qualifies' || escapeWindows.bedroom_2 === 'qualifies'
   if (anyWindowQualifies) return 'via_window'
@@ -532,6 +631,7 @@ interface DerivedEscapeContext {
   escape_windows: EscapeWindowAssessment
   inner_room_present: 'yes' | 'no' | 'unknown'
   upper_flat_independent_exit: 'yes' | 'no' | 'unknown'
+  upper_external_escape_viable: 'yes' | 'no' | 'unknown'
 }
 
 /**
@@ -557,11 +657,13 @@ export function computeRiskFactors(
   // ESCAPE dimension
   // -------------------------------------------------------------------------
 
-  // RF-C01: No qualifying bedroom window AND no rear exit
+  // RF-C01: No qualifying bedroom window AND no viable independent escape route.
+  // Suppressed when a confirmed viable external escape route exists (reduces sole-route dependency).
   const bed1OK = derived.escape_windows.bedroom_1 === 'qualifies'
   const bed2OK = derived.escape_windows.bedroom_2 === 'qualifies'
   const anyBedQualifies = bed1OK || bed2OK
-  if (!anyBedQualifies && derived.upper_flat_independent_exit !== 'yes') {
+  const upperEscapeViable = derived.upper_external_escape_viable === 'yes'
+  if (!anyBedQualifies && !upperEscapeViable) {
     add('RF-C01', 2)
   }
 
@@ -634,6 +736,35 @@ export function computeRiskFactors(
     // RF-D06: Poor overall staircase condition
     const D6 = answers['D6']?.value
     if (D6 === 'poor') add('RF-D06', 2)
+
+    // -------------------------------------------------------------------------
+    // Stair compartmentation sub-model (D10–D18)
+    // -------------------------------------------------------------------------
+
+    // RF-S01: Timber panelling — negligible fire resistance
+    const D10 = answers['D10']?.value
+    if (D10 === 'timber_panelling') add('RF-S01', 3)
+
+    // RF-S02: Under 9.5mm board — below minimum effective thickness
+    const D12 = answers['D12']?.value
+    if (D12 === 'under_9_5') add('RF-S02', 2)
+
+    // RF-S03: Unsealed penetrations through the enclosure
+    const D15 = answers['D15']?.value
+    if (D15 === 'unsealed') add('RF-S03', 2)
+
+    // RF-S04: Enclosure not continuous — significant gaps or breaks
+    const D16 = answers['D16']?.value
+    if (D16 === 'no') add('RF-S04', 3)
+
+    // RF-S05: Hidden voids suspected — potential concealed fire path
+    const D17 = answers['D17']?.value
+    if (D17 === 'yes') add('RF-S05', 2)
+
+    // RF-S06: 1950–1970 conversion inspected visually only — age + uncertainty
+    const D11 = answers['D11']?.value
+    const D14 = answers['D14']?.value
+    if (D11 === '1950_1970' && D14 === 'visual_only') add('RF-S06', 1)
   }
 
   // -------------------------------------------------------------------------
@@ -685,5 +816,97 @@ function scoreToRiskLevel(score: number): RiskLevel {
   if (score <= 2) return 'low'
   if (score <= 5) return 'normal'
   if (score <= 9) return 'elevated'
+  return 'high'
+}
+
+// ---------------------------------------------------------------------------
+// Stair compartmentation derived fields
+// ---------------------------------------------------------------------------
+
+/**
+ * Derives compartmentation confidence from observable evidence (D10–D17).
+ * Evaluated high → moderate → low → unknown in order.
+ */
+function computeStairCompartmentationConfidence(
+  answers: AnswerMap,
+  separateEntranceMode: boolean
+): Classification['stair_compartmentation_confidence'] {
+  if (separateEntranceMode) return 'unknown'
+
+  const D10 = answers['D10']?.value
+  const D11 = answers['D11']?.value
+  const D12 = answers['D12']?.value
+  const D13 = answers['D13']?.value
+  const D14 = answers['D14']?.value
+  const D15 = answers['D15']?.value
+  const D16 = answers['D16']?.value
+  const D17 = answers['D17']?.value
+
+  if (!D10 || D10 === 'unknown') return 'unknown'
+
+  // High: masonry or confirmed 12.5mm+ fire-resistant board, intrusive inspection,
+  // no unsealed penetrations, continuous, no hidden voids
+  if (
+    (D10 === 'masonry' || D10 === 'plasterboard') &&
+    D14 !== undefined && (D14 === 'inspection_opening' || D14 === 'intrusive_confirmed') &&
+    (D12 === '12_5' || D12 === 'double_layer' || D10 === 'masonry') &&
+    (D13 === 'fire_resistant' || D10 === 'masonry') &&
+    (D15 === 'none' || D15 === 'sealed') &&
+    D16 === 'yes' &&
+    D17 === 'no'
+  ) {
+    return 'high'
+  }
+
+  // Low: any of the strong negative indicators
+  if (
+    D10 === 'timber_panelling' ||
+    D12 === 'under_9_5' ||
+    D14 === 'visual_only' ||
+    D15 === 'unsealed' ||
+    D16 === 'no' ||
+    D17 === 'yes' ||
+    // Pre-1991 with low inspection confidence
+    ((D11 === 'pre_1950' || D11 === '1950_1970') && D14 === 'visual_only')
+  ) {
+    return 'low'
+  }
+
+  // Moderate: adequate material, some inspection evidence, no major defects
+  if (
+    (D10 === 'masonry' || D10 === 'plasterboard' || D10 === 'lath_plaster') &&
+    D14 !== undefined && D14 !== 'visual_only' &&
+    D12 !== 'under_9_5' && D12 !== 'unknown' &&
+    (D15 === 'none' || D15 === 'sealed' || D15 === undefined) &&
+    D16 === 'yes'
+  ) {
+    return 'moderate'
+  }
+
+  return 'unknown'
+}
+
+/**
+ * Derives stair-specific risk level from the RF-S sub-score (sum of triggered
+ * RF-S01–RF-S06 weights within the overall risk factors list).
+ */
+function computeStairCompartmentationRisk(
+  factors: string[],
+  separateEntranceMode: boolean
+): Classification['stair_compartmentation_risk'] {
+  if (separateEntranceMode) return 'low'
+
+  const S_WEIGHTS: Record<string, number> = {
+    'RF-S01': 3,
+    'RF-S02': 2,
+    'RF-S03': 2,
+    'RF-S04': 3,
+    'RF-S05': 2,
+    'RF-S06': 1,
+  }
+  const sScore = factors.reduce((acc, id) => acc + (S_WEIGHTS[id] ?? 0), 0)
+  if (sScore === 0) return 'low'
+  if (sScore <= 2) return 'normal'
+  if (sScore <= 5) return 'elevated'
   return 'high'
 }
