@@ -37,16 +37,17 @@ import ProgressBar from '../components/ProgressBar'
 
 const SCOPE_LABELS: Record<QuestionScope, string> = {
   building: 'Whole building',
-  ground:   'Ground floor flat',
+  ground:   'Ground-floor flat',
   upper:    'Upper flat',
   common:   'Common parts',
+  both:     'Both flats',
 }
 
 function ScopeBadge({ scope }: { scope: QuestionScope }) {
   return (
     <div className={`scope-badge scope-badge--${scope}`} aria-label={`Currently assessing: ${SCOPE_LABELS[scope]}`}>
       <span className="scope-badge__icon" aria-hidden="true">
-        {scope === 'ground' ? '🏠' : scope === 'upper' ? '🏢' : scope === 'common' ? '🚪' : '🏗️'}
+        {scope === 'ground' ? '🏠' : scope === 'upper' ? '🏢' : scope === 'common' ? '🚪' : scope === 'both' ? '🏘️' : '🏗️'}
       </span>
       <span className="scope-badge__label">Currently assessing: <strong>{SCOPE_LABELS[scope]}</strong></span>
     </div>

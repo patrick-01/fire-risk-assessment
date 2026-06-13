@@ -13,8 +13,36 @@
  */
 
 import { useState, useEffect, type ChangeEvent } from 'react'
-import type { Question } from '../data/schema/questions'
-import type { AnswerValue, AnswerConfidence } from '../state/AppState'
+import type { Question, QuestionScope } from '../data/schema/questions'
+import type { AnswerValue, AnswerConfidence, SectionId } from '../state/AppState'
+
+/**
+ * Human-readable section titles for the question card meta line. Uses the
+ * precise v2 terms (§8.2) — no "communal staircase".
+ */
+const SECTION_TITLES: Record<SectionId, string> = {
+  setup: 'Property Setup',
+  building: 'Building Classification',
+  'common-parts': 'Common Parts',
+  'ground-flat': 'Ground-floor Flat',
+  'upper-flat': 'Upper Flat',
+  'external-escape': 'External Escape Routes',
+  doors: 'Doors & Route Protection',
+  stair: 'Stair Compartmentation',
+  detection: 'Detection & Alarms',
+  services: 'Gas / Electrical / CO',
+  management: 'Management',
+  results: 'Results',
+}
+
+/** Scope badge labels (§18.2 label set). */
+const SCOPE_LABELS: Record<QuestionScope, string> = {
+  building: 'Building',
+  common: 'Common parts',
+  ground: 'Ground-floor flat',
+  upper: 'Upper flat',
+  both: 'Both flats',
+}
 
 interface QuestionCardProps {
   question: Question
@@ -34,8 +62,11 @@ export default function QuestionCard({
   return (
     <article className="question-card" aria-labelledby={`q-${question.id}-text`}>
       <div className="question-card__meta">
+        <span className="question-card__scope" data-scope={question.scope}>
+          {SCOPE_LABELS[question.scope]}
+        </span>
         <span className="question-card__section">
-          {question.section === 'setup' ? 'Property Setup' : `Section ${question.section}`}
+          {SECTION_TITLES[question.section] ?? question.section}
         </span>
         <span className="question-card__position">
           Question {question.section_position}

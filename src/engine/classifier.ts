@@ -22,10 +22,15 @@
 import type {
   AnswerMap,
   AnswerValue,
+  BuildingClassification,
+  BuildingOrigin,
   Classification,
   CommunalEntranceType,
+  EntranceConfiguration,
   EscapeWindowAssessment,
   EscapeWindowStatus,
+  HmoClassification,
+  LegalFrameworkAssessment,
   RiskLevel,
 } from '../state/AppState'
 import { QUESTION_MAP } from '../data/schema/questions'
@@ -89,7 +94,16 @@ export const RISK_FACTOR_DIMENSIONS: Record<
 // Main classification function
 // ---------------------------------------------------------------------------
 
-export function classify(answers: AnswerMap): Classification {
+/**
+ * classifyLegacy — the v1 classification + risk-scoring engine.
+ *
+ * RETAINED unchanged during the v2 refactor: the not-yet-migrated remedy and
+ * report engines (Steps 4–5) still consume the v1 `Classification` shape, and
+ * the reducer continues to populate `assessment.classification` from this until
+ * the Step 7 clean break. The v2 engine below (`classify`/`deriveLegalFramework`)
+ * is the replacement; do not extend this function.
+ */
+export function classifyLegacy(answers: AnswerMap): Classification {
   // Step 1: BLOCK_CLASS uncertainty on Section A questions
   const blocked = hasUncertaintyBehaviour('BLOCK_CLASS', answers, UNCERTAINTY_MAP)
   const unresolved_reasons: string[] = []
@@ -403,7 +417,7 @@ function deriveUpperIndependentEscapeType(B2: AnswerValue): Classification['uppe
   return 'unknown'
 }
 
-function deriveUpperExternalEscapeViable(
+export function deriveUpperExternalEscapeViable(
   answers: AnswerMap,
   B2: AnswerValue
 ): Classification['upper_external_escape_viable'] {
@@ -432,7 +446,7 @@ function deriveUpperSharedRouteDependency(
   return 'unknown'
 }
 
-function deriveInnerRoomPresent(answers: AnswerMap): Classification['inner_room_present'] {
+export function deriveInnerRoomPresent(answers: AnswerMap): Classification['inner_room_present'] {
   const C10 = answers['C10']?.value
   const C13 = answers['C13']?.value
   // C10 = 'yes' means at least one bedroom is an inner room
@@ -573,7 +587,7 @@ function assessSingleWindow(
   return hasUnknown ? 'unknown' : 'qualifies'
 }
 
-function assessEscapeWindows(answers: AnswerMap): EscapeWindowAssessment {
+export function assessEscapeWindows(answers: AnswerMap): EscapeWindowAssessment {
   const B4 = answers['B4']?.value
   const floorHeightOk: boolean | null =
     B4 === '2.5_4m' ? true : B4 === 'above_4.5m' ? false : null
@@ -827,7 +841,7 @@ function scoreToRiskLevel(score: number): RiskLevel {
  * Derives compartmentation confidence from observable evidence (D10–D17).
  * Evaluated high → moderate → low → unknown in order.
  */
-function computeStairCompartmentationConfidence(
+export function computeStairCompartmentationConfidence(
   answers: AnswerMap,
   separateEntranceMode: boolean
 ): Classification['stair_compartmentation_confidence'] {
@@ -909,4 +923,252 @@ function computeStairCompartmentationRisk(
   if (sScore <= 2) return 'normal'
   if (sScore <= 5) return 'elevated'
   return 'high'
+}
+
+// ===========================================================================
+// FireRegs v2 classification engine (docs/2-Classification-and-Legal-Framework)
+//
+// Separates "what kind of building is this" (BuildingClassification) from
+// "what statutory duties apply" (LegalFrameworkAssessment). Both are pure
+// functions of the answer map. The §6.2 HMO truth table is enforced here:
+//   - two flats alone NEVER imply Section 257;
+//   - purpose-built  ⇒ not_hmo, section_257 = false, D10 not_applicable, but
+//                       general LACORS risk guidance stays applicable (§6.3);
+//   - converted      ⇒ at least probable_section_257_hmo where the pre-1991 /
+//                       owner-occupation facts support it.
+//
+// Answer-ID note: derived from the current Section-A/B questions.ts. The
+// question schema is itself refactored in Step 3; these IDs are re-confirmed
+// there. (See docs Step 2 Notes.)
+// ===========================================================================
+
+/** Maps the Section-A1 construction answer to the v2 building origin. */
+function deriveBuildingOrigin(A1: AnswerValue): BuildingOrigin {
+  if (A1 === 'purpose-built') return 'purpose_built_two_flats'
+  if (A1 === 'converted') return 'converted_from_single_house'
+  return 'unknown'
+}
+
+/**
+ * Derives entrance configuration from B1 (replaces v1 communal_entrance +
+ * separate_entrance_mode).
+ *
+ * The supported portfolio is one-flat-per-floor, so a communal building has a
+ * shared hall with a stair serving the UPPER FLAT ONLY (§8.2) — that is
+ * `shared_entrance_hall`, not a communal stair serving multiple dwellings.
+ * `shared_hall_and_shared_stair` is reserved for a stair serving multiple
+ * dwellings (3+ flats — outside v2 core scope); the Step 3 question schema may
+ * add a discriminating question. No current answer distinguishes it.
+ */
+function deriveEntranceConfiguration(B1: AnswerValue): EntranceConfiguration {
+  if (B1 === 'separate') return 'separate_private_entrances'
+  if (B1 === 'communal') return 'shared_entrance_hall'
+  return 'unknown'
+}
+
+/** Common parts exist iff the building has a shared (communal) entrance. */
+function deriveFsoCommonParts(B1: AnswerValue): boolean | 'unknown' {
+  if (B1 === 'communal') return true
+  if (B1 === 'separate') return false
+  return 'unknown'
+}
+
+/**
+ * §6 — derives the building classification from the answer map.
+ *
+ * Mirrors the legacy Section-257 criteria evaluation (so the two stay
+ * consistent during the transition) but emits the v2 `BuildingClassification`
+ * shape, keeping the D10/Section-257 benchmark distinct from the general LACORS
+ * risk guidance.
+ */
+export function classify(answers: AnswerMap): BuildingClassification {
+  const A1 = answers['A1']?.value
+  const A2 = answers['A2']?.value
+  const A3 = answers['A3']?.value
+  const A4 = answers['A4']?.value
+  const A5 = answers['A5']?.value
+  const B1 = answers['B1']?.value
+
+  const origin = deriveBuildingOrigin(A1)
+  const entrance_configuration = deriveEntranceConfiguration(B1)
+  const fso_common_parts = deriveFsoCommonParts(B1)
+
+  // Shared fields for every outcome. General LACORS risk guidance is always
+  // applicable across the portfolio (§2.1) — it is never switched off merely
+  // because a building is not a Section 257 HMO.
+  const base = {
+    origin,
+    entrance_configuration,
+    fso_common_parts,
+    general_lacors_risk_guidance: 'applicable' as const,
+  }
+
+  function build(
+    hmo: HmoClassification,
+    confidence: BuildingClassification['confidence'],
+    case_study_d10: BuildingClassification['case_study_d10'],
+    unresolved_reasons: string[]
+  ): BuildingClassification {
+    return {
+      ...base,
+      hmo,
+      section_257: hmo === 'section_257_hmo',
+      case_study_d10,
+      confidence,
+      unresolved_reasons,
+    }
+  }
+
+  const blocked = hasUncertaintyBehaviour('BLOCK_CLASS', answers, UNCERTAINTY_MAP)
+
+  // ---- Definitely NOT a Section 257 HMO -----------------------------------
+  // Purpose-built (two flats never imply 257), post-1991 compliant conversion,
+  // 3+ flats / not flats (out of 2-flat scope), social landlord, or outside
+  // Richmond. D10 / Case Study D10 is a Section-257 benchmark, so it is not
+  // applicable in any of these cases — but general LACORS guidance still is.
+  const notHmo =
+    A1 === 'purpose-built' ||
+    A2 === 'no' ||
+    A3 === '3_or_more' ||
+    A3 === 'not_flats' ||
+    A4 === 'social' ||
+    A5 === 'no'
+
+  if (notHmo) {
+    return build('not_hmo', 'confirmed', 'not_applicable', [])
+  }
+
+  // ---- Section 257 criteria (converted-flat candidates) -------------------
+  // null = unanswered, true = met, false = explicitly not met. Mirrors the v1
+  // criteria, including the A2 guard (hidden when A1 ≠ converted) and the
+  // 50%-owner-occupation (one_owner_occupied) handling.
+  const oneOwnerOccupied = A4 === 'one_owner_occupied'
+
+  const criteria: Array<boolean | null> = [
+    A1 === 'converted' ? true : A1 !== undefined ? false : null,
+    A1 !== 'converted'
+      ? false
+      : A2 === 'yes'
+        ? true
+        : A2 !== undefined
+          ? false
+          : null,
+    A3 === '2' ? true : A3 !== undefined ? false : null,
+    A4 === 'none_owner_occupied' || oneOwnerOccupied
+      ? true
+      : A4 !== undefined
+        ? false
+        : null,
+    A5 === 'yes' ? true : A5 !== undefined ? false : null,
+  ]
+
+  const hasUnanswered = criteria.some((v) => v === null)
+
+  // Not all criteria answered, or a BLOCK_CLASS criterion answered "not sure":
+  // classification cannot yet be resolved.
+  if (hasUnanswered || blocked) {
+    return build('unresolved', 'unresolved', 'unknown', [
+      blocked
+        ? 'One or more key questions were answered as "not sure". ' +
+          'Classification cannot be confirmed until these are resolved.'
+        : 'Not all classification questions have been answered yet.',
+    ])
+  }
+
+  const allMet = criteria.every((v) => v === true)
+
+  if (!allMet) {
+    // Criteria explicitly not met → not a Section 257 HMO.
+    return build('not_hmo', 'confirmed', 'not_applicable', [])
+  }
+
+  // ---- All criteria met ---------------------------------------------------
+  // 50% owner occupation keeps the building in scope (below the Schedule 14
+  // two-thirds threshold) but reduces confidence → probable_section_257_hmo.
+  const unresolved_reasons: string[] = []
+  if (oneOwnerOccupied) {
+    unresolved_reasons.push(
+      'One flat is owner-occupied. One owner-occupied flat in a two-flat building ' +
+        'represents 50% owner occupation — below the Schedule 14 two-thirds threshold ' +
+        '— so the property is not automatically excluded from Section 257. The practical ' +
+        'regulatory treatment may differ from a wholly privately rented building; confirm ' +
+        'with Richmond Council or a qualified assessor.'
+    )
+  }
+
+  const hmo: HmoClassification = oneOwnerOccupied
+    ? 'probable_section_257_hmo'
+    : 'section_257_hmo'
+  const confidence: BuildingClassification['confidence'] = oneOwnerOccupied
+    ? 'probable'
+    : 'confirmed'
+
+  return build(hmo, confidence, 'applicable', unresolved_reasons)
+}
+
+/**
+ * §7 — derives the applicable statutory framework from the answer map and the
+ * building classification.
+ *
+ * Electrical safety and HHSRS fire-hazard duties always apply to rented
+ * residential property; the remaining duties are derived from facts. This is a
+ * statement of WHICH regimes apply, not of compliance.
+ */
+export function deriveLegalFramework(
+  answers: AnswerMap,
+  classification: BuildingClassification
+): LegalFrameworkAssessment {
+  const A4 = answers['A4']?.value
+  const G1 = answers['G1']?.value
+
+  // Smoke & CO alarm regs apply to rented residential premises. Every A4 option
+  // (privately rented / one owner-occupied / social) involves a rented flat.
+  const smoke_co_alarm_regulations: LegalFrameworkAssessment['smoke_co_alarm_regulations'] =
+    A4 !== undefined ? 'applies' : 'unknown'
+
+  // Annual gas safety check applies where gas appliances are provided (G1).
+  const gas_safety: LegalFrameworkAssessment['gas_safety'] =
+    G1 === 'within_12_months' || G1 === 'overdue'
+      ? 'applies'
+      : G1 === 'no_gas'
+        ? 'not_applicable'
+        : 'unknown'
+
+  // FSO common-parts duty bites iff common parts exist.
+  const fire_safety_order_common_parts: LegalFrameworkAssessment['fire_safety_order_common_parts'] =
+    classification.fso_common_parts === true
+      ? 'applies'
+      : classification.fso_common_parts === false
+        ? 'not_applicable'
+        : 'unknown'
+
+  // Section 257 HMO regime: applies when confirmed; uncertain while probable or
+  // unresolved; not applicable once the building is determined not to be one.
+  const section_257_hmo: LegalFrameworkAssessment['section_257_hmo'] =
+    classification.hmo === 'section_257_hmo'
+      ? 'applies'
+      : classification.hmo === 'not_hmo'
+        ? 'not_applicable'
+        : 'unknown'
+
+  // LACORS is a direct benchmark for converted / Section-257 cases, and a risk
+  // reference elsewhere; unknown only while origin and HMO status are unresolved.
+  const lacors_guidance_use: LegalFrameworkAssessment['lacors_guidance_use'] =
+    classification.origin === 'converted_from_single_house' ||
+    classification.hmo === 'section_257_hmo' ||
+    classification.hmo === 'probable_section_257_hmo'
+      ? 'direct_benchmark'
+      : classification.origin === 'unknown' && classification.hmo === 'unresolved'
+        ? 'unknown'
+        : 'risk_reference'
+
+  return {
+    smoke_co_alarm_regulations,
+    gas_safety,
+    electrical_safety: 'applies',
+    hhsrs_fire_hazard: 'applies',
+    fire_safety_order_common_parts,
+    section_257_hmo,
+    lacors_guidance_use,
+  }
 }

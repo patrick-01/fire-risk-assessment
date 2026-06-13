@@ -14,9 +14,10 @@ import {
   encodeAssessmentForUrl,
   decodeAssessmentFromUrl,
   isShareLinkSupported,
+  isIncompatibleAssessment,
 } from './localStorageAdapter'
 import { SCHEMA_VERSION } from '../state/AppState'
-import type { Assessment } from '../state/AppState'
+import type { Assessment, AssessmentIndexEntry } from '../state/AppState'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -38,7 +39,7 @@ function makeAssessment(overrides: Partial<Assessment> = {}): Assessment {
       postcode_normalised: 'TW9 4HA',
       flat_ref: null,
     },
-    current_section: 'A',
+    current_section: 'building',
     current_question_id: 'A1',
     answers: {
       A1: {
@@ -185,6 +186,11 @@ describe('importAssessmentJson — invalid input', () => {
     expect(() => importAssessmentJson(JSON.stringify(assessment))).toThrow(/schema version/i)
   })
 
+  it('schema version mismatch message offers to start a new v2 assessment', () => {
+    const assessment = makeAssessment({ schema_version: '1.2' as typeof SCHEMA_VERSION })
+    expect(() => importAssessmentJson(JSON.stringify(assessment))).toThrow(/start a new v2 assessment/i)
+  })
+
   it('throws when schema_version is empty string', () => {
     const assessment = makeAssessment({ schema_version: '' as typeof SCHEMA_VERSION })
     expect(() => importAssessmentJson(JSON.stringify(assessment))).toThrow()
@@ -272,6 +278,29 @@ describe('encodeAssessmentForUrl / decodeAssessmentFromUrl', () => {
     expect(result).toBeNull()
   })
 
+  it('round-trips a realistically-sized assessment (~60 answered questions) within the URL size limit', async () => {
+    if (!isShareLinkSupported()) return
+
+    const answers: Assessment['answers'] = {}
+    for (let i = 0; i < 60; i++) {
+      answers[`Q${i}`] = {
+        value: 'some_answer_value',
+        confidence: 'confirmed',
+        answered_at: '2026-01-01T00:00:00.000Z',
+      }
+    }
+    const assessment = makeAssessment({ answers })
+
+    const encoded = await encodeAssessmentForUrl(assessment)
+    expect(encoded.length).toBeLessThan(7_500)
+
+    const decoded = await decodeAssessmentFromUrl(encoded)
+    expect(decoded).not.toBeNull()
+    expect(Object.keys(decoded!.answers)).toHaveLength(60)
+    expect(decoded!.answers['Q0']?.value).toBe('some_answer_value')
+    expect(decoded!.schema_version).toBe(SCHEMA_VERSION)
+  })
+
   it('throws for an assessment that exceeds the URL size limit', async () => {
     if (!isShareLinkSupported()) return
     // Use pseudo-random data per answer so deflate cannot compress it away.
@@ -312,5 +341,35 @@ describe('isShareLinkSupported', () => {
     } else {
       expect(isShareLinkSupported()).toBe(false)
     }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// isIncompatibleAssessment — Step 7 clean-break detection
+// ---------------------------------------------------------------------------
+
+function makeIndexEntry(overrides: Partial<AssessmentIndexEntry> = {}): AssessmentIndexEntry {
+  return {
+    assessment_id: 'abc-123',
+    address_display: '1 Test Street, TW9 4HA',
+    last_edited_at: '2026-01-02T00:00:00.000Z',
+    completion_status: 'in-progress',
+    rules_version: 'test-v1',
+    schema_version: SCHEMA_VERSION,
+    ...overrides,
+  }
+}
+
+describe('isIncompatibleAssessment', () => {
+  it('returns false for an entry saved under the current schema version', () => {
+    expect(isIncompatibleAssessment(makeIndexEntry({ schema_version: SCHEMA_VERSION }))).toBe(false)
+  })
+
+  it('returns true for an entry saved under an older schema version', () => {
+    expect(isIncompatibleAssessment(makeIndexEntry({ schema_version: '1.2' }))).toBe(true)
+  })
+
+  it('returns true for an entry with a missing/empty schema_version (pre-v2 index format)', () => {
+    expect(isIncompatibleAssessment(makeIndexEntry({ schema_version: '' }))).toBe(true)
   })
 })

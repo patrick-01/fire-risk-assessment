@@ -17,14 +17,16 @@ import type { SectionId } from '../state/AppState'
 
 const SECTION_LABELS: Record<SectionId, string> = {
   setup: 'Property Setup',
-  A: 'Section A — Building Origin and Classification',
-  B: 'Section B — Building Configuration and Travel Distance',
-  C: 'Section C — Escape Routes',
-  D: 'Section D — Construction, Staircase, and Ignition Risk',
-  E: 'Section E — Fire Detection and Alarms',
-  F: 'Section F — Doors and Egress',
-  G: 'Section G — General Legal Obligations',
-  H: 'Section H — Management and Maintenance',
+  building: 'Building Classification',
+  'common-parts': 'Common Parts / Entrance Configuration',
+  'ground-flat': 'Ground-floor Flat',
+  'upper-flat': 'Upper-floor Flat',
+  'external-escape': 'External Escape Routes',
+  doors: 'Doors and Route Protection',
+  stair: 'Stair Compartmentation',
+  detection: 'Detection and Alarms',
+  services: 'Gas / Electrical / CO',
+  management: 'Management and Maintenance',
   results: 'Results',
 }
 

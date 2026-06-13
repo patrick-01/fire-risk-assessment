@@ -50,9 +50,9 @@ function baseClassification(overrides: Partial<Classification> = {}): Classifica
 
 function makeAssessment(overrides: Partial<Assessment> = {}): Assessment {
   return {
-    schema_version: '1.2',
+    schema_version: '2.0',
     rules_version: RULES_VERSION,
-    app_version: '0.3.0',
+    app_version: '0.4.0',
     assessment_id: 'test-123',
     created_at: '2026-01-01T00:00:00.000Z',
     last_edited_at: '2026-01-02T00:00:00.000Z',
@@ -64,7 +64,7 @@ function makeAssessment(overrides: Partial<Assessment> = {}): Assessment {
       postcode_normalised: 'TW9 4HA',
       flat_ref: null,
     },
-    current_section: 'A',
+    current_section: 'building',
     current_question_id: 'A1',
     answers: {
       A1: a('converted'),

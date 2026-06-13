@@ -15,6 +15,7 @@ import HomePage from './pages/HomePage'
 import QuestionnairePage from './pages/QuestionnairePage'
 import ReviewPage from './pages/ReviewPage'
 import ReportPage from './pages/ReportPage'
+import IncompatibleLegacyPage from './pages/IncompatibleLegacyPage'
 
 export default function App() {
   const { state, dispatch } = useAppContext()
@@ -33,6 +34,9 @@ export default function App() {
 
       case 'report':
         return <ReportPage />
+
+      case 'incompatible-legacy':
+        return <IncompatibleLegacyPage />
 
       case 'out-of-scope':
         return (

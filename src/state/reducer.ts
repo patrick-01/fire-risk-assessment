@@ -22,7 +22,11 @@ import type {
   AssessmentIndexEntry,
 } from './AppState'
 import { SCHEMA_VERSION, APP_VERSION } from './AppState'
-import { classify } from '../engine/classifier'
+// The reducer still populates the v1 `Classification` shape consumed by the
+// not-yet-migrated remedy/report engines, so it calls the retained legacy
+// classifier. The v2 `classify`/`deriveLegalFramework` engine is wired in at
+// the Step 7 clean break.
+import { classifyLegacy as classify } from '../engine/classifier'
 import {
   getTransitivelyInvalidatedIds,
   getNextQuestion,

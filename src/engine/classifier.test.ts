@@ -5,7 +5,9 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { classify, computeRiskFactors, RISK_FACTOR_DIMENSIONS } from './classifier'
+// These tests cover the retained v1 classifier (now exported as `classifyLegacy`).
+// The v2 `classify`/`deriveLegalFramework` engine is tested in classifier.v2.test.ts.
+import { classifyLegacy as classify, computeRiskFactors, RISK_FACTOR_DIMENSIONS } from './classifier'
 import type { AnswerMap } from '../state/AppState'
 
 // ---------------------------------------------------------------------------

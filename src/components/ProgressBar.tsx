@@ -20,15 +20,33 @@ interface ProgressBarProps {
 
 const SECTION_LABELS: Record<SectionId, string> = {
   setup: 'Property Setup',
-  A: 'Building Origin',
-  B: 'Building Configuration',
-  C: 'Escape Routes',
-  D: 'Staircase & Construction',
-  E: 'Fire Detection',
-  F: 'Doors & Egress',
-  G: 'Legal Obligations',
-  H: 'Management',
+  building: 'Building Classification',
+  'common-parts': 'Common Parts',
+  'ground-flat': 'Ground-floor Flat',
+  'upper-flat': 'Upper Flat',
+  'external-escape': 'External Escape Routes',
+  doors: 'Doors & Route Protection',
+  stair: 'Stair Compartmentation',
+  detection: 'Detection & Alarms',
+  services: 'Gas / Electrical / CO',
+  management: 'Management',
   results: 'Results',
+}
+
+/** Short badge codes for the section progress chips. */
+const SECTION_SHORT: Record<SectionId, string> = {
+  setup: 'P',
+  building: 'BC',
+  'common-parts': 'CP',
+  'ground-flat': 'GF',
+  'upper-flat': 'UF',
+  'external-escape': 'XE',
+  doors: 'DR',
+  stair: 'ST',
+  detection: 'DA',
+  services: 'GE',
+  management: 'MG',
+  results: 'R',
 }
 
 export default function ProgressBar({ percent, currentSection, sectionProgress }: ProgressBarProps) {
@@ -69,7 +87,7 @@ export default function ProgressBar({ percent, currentSection, sectionProgress }
             aria-current={section === currentSection ? 'step' : undefined}
           >
             <span className="sr-only">{SECTION_LABELS[section]}: {status}</span>
-            <span aria-hidden="true">{section === 'setup' ? 'P' : section}</span>
+            <span aria-hidden="true">{SECTION_SHORT[section] ?? section}</span>
           </li>
         ))}
       </ol>

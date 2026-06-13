@@ -354,9 +354,9 @@ describe('getOutOfScopeReason', () => {
     expect(getOutOfScopeReason({ A2: a('no') })).toBeNull()
   })
 
-  it('returns null for A3=3_or_more (3+ flats — no longer a dead-end, assessed as non-section-257)', () => {
-    // A3='3_or_more' no longer has triggers_out_of_scope
-    expect(getOutOfScopeReason({ A3: a('3_or_more') })).toBeNull()
+  it('returns a string for A3=3_or_more (V9 — three+ flats are out of v2 scope; detect and stop, §4.2)', () => {
+    // A3='3_or_more' triggers out-of-scope in v2: the tool assesses exactly two flats.
+    expect(typeof getOutOfScopeReason({ A3: a('3_or_more') })).toBe('string')
   })
 
   it('returns null for A4=one_owner_occupied (no longer a dead-end — 50% owner occupation is below Schedule 14 threshold)', () => {
@@ -393,7 +393,7 @@ describe('getSectionProgress', () => {
     const sections = progress.map((p) => p.section)
     expect(sections).not.toContain('results')
     expect(sections).toContain('setup')
-    expect(sections).toContain('A')
+    expect(sections).toContain('building')
   })
 
   it('reports not-started for empty answers', () => {

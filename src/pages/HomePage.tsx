@@ -15,6 +15,7 @@ import {
   loadAssessment,
   loadIndex,
   importAssessmentJson,
+  isIncompatibleAssessment,
 } from '../persistence/localStorageAdapter'
 import type { Assessment } from '../state/AppState'
 import SavedAssessmentList from '../components/SavedAssessmentList'
@@ -47,6 +48,12 @@ export default function HomePage() {
   }
 
   function handleResume(assessmentId: string) {
+    const entry = state.savedAssessments.find((e) => e.assessment_id === assessmentId)
+    if (entry && isIncompatibleAssessment(entry)) {
+      dispatch({ type: 'NAVIGATE_TO_SCREEN', payload: 'incompatible-legacy' })
+      return
+    }
+
     const assessment: Assessment | null = loadAssessment(assessmentId)
     if (!assessment) {
       console.error(`[HomePage] Assessment ${assessmentId} not found in storage.`)
