@@ -27,10 +27,13 @@ import { useAppContext } from '../state/AppContext'
 import { classify, deriveLegalFramework } from '../engine/classifier'
 import { computeRisk } from '../engine/riskEngine'
 import { computeRemediesV2 } from '../engine/remedyEngine.v2'
+import { generateReportV2 } from '../engine/reportGenerator.v2'
+import { generateReportPdf } from '../engine/pdfReport'
 import { QUESTION_MAP } from '../data/schema/questions'
 import { shouldShowQuestion } from '../engine/navigator'
 import {
   downloadAssessmentJson,
+  downloadPdf,
   encodeAssessmentForUrl,
   isShareLinkSupported,
 } from '../persistence/localStorageAdapter'
@@ -157,6 +160,7 @@ const FRAMEWORK_STATUS_LABELS: Record<'applies' | 'not_applicable' | 'unknown', 
 export default function ReportPage() {
   const { state, dispatch } = useAppContext()
   const [shareStatus, setShareStatus] = useState<ShareStatus>('idle')
+  const [pdfStatus, setPdfStatus] = useState<'idle' | 'working' | 'error'>('idle')
 
   const model = useMemo(() => {
     const assessment = state.activeAssessment
@@ -201,6 +205,20 @@ export default function ReportPage() {
     remedies.recommendations.length === 0 &&
     remedies.further_investigation.length === 0 &&
     remedies.advisory.length === 0
+
+  async function handleDownloadPdf() {
+    setPdfStatus('working')
+    try {
+      const reportV2 = generateReportV2(property, assessment.answers, classification, legalFramework, risk, remedies)
+      const bytes = await generateReportPdf(reportV2)
+      const postcode = (property.postcode_normalised || property.postcode).replace(/\s+/g, '').toLowerCase()
+      const date = new Date(assessment.report_generated_at ?? Date.now()).toISOString().slice(0, 10)
+      downloadPdf(bytes, `fire-report-${postcode || 'unknown'}-${date}.pdf`)
+      setPdfStatus('idle')
+    } catch {
+      setPdfStatus('error')
+    }
+  }
 
   return (
     <main className="page page--report">
@@ -318,6 +336,14 @@ export default function ReportPage() {
         >
           Export JSON
         </button>
+        <button
+          className="btn btn--secondary"
+          onClick={handleDownloadPdf}
+          disabled={pdfStatus === 'working'}
+          title="Download this report as a PDF document"
+        >
+          {pdfStatus === 'working' ? 'Generating PDF…' : 'Download PDF'}
+        </button>
         <ShareButton
           status={shareStatus}
           onShare={async () => {
@@ -359,6 +385,11 @@ export default function ReportPage() {
       {shareStatus === 'unsupported' && (
         <p className="share-error" role="alert">
           Share links are not supported in this browser. Use <strong>Export JSON</strong> instead.
+        </p>
+      )}
+      {pdfStatus === 'error' && (
+        <p className="share-error" role="alert">
+          Could not generate the PDF. Please try again, or use Export JSON.
         </p>
       )}
     </main>

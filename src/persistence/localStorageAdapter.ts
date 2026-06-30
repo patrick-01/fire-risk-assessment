@@ -230,6 +230,31 @@ export function downloadAssessmentJson(assessment: Assessment): void {
 }
 
 // ---------------------------------------------------------------------------
+// PDF download
+// ---------------------------------------------------------------------------
+
+/**
+ * Triggers a browser download of report PDF bytes (produced by the pure
+ * `generateReportPdf` engine function). Mirrors `downloadAssessmentJson` — the
+ * DOM `<a download>` trigger lives here, in the one module permitted to touch
+ * the DOM.
+ */
+export function downloadPdf(bytes: Uint8Array, filename: string): void {
+  const blob = new Blob([bytes as BlobPart], { type: 'application/pdf' })
+  const url = URL.createObjectURL(blob)
+
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  anchor.style.display = 'none'
+  document.body.appendChild(anchor)
+  anchor.click()
+  document.body.removeChild(anchor)
+
+  setTimeout(() => URL.revokeObjectURL(url), 1_000)
+}
+
+// ---------------------------------------------------------------------------
 // JSON import — validation and schema checking
 // ---------------------------------------------------------------------------
 
