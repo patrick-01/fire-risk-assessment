@@ -25,6 +25,7 @@
 
 import type { Assessment, AssessmentIndexEntry } from '../state/AppState'
 import { SCHEMA_VERSION } from '../state/AppState'
+import { getOutOfScopeReason } from '../engine/navigator'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -519,7 +520,10 @@ function formatAddressDisplay(assessment: Assessment): string {
 function deriveCompletionStatus(
   assessment: Assessment
 ): AssessmentIndexEntry['completion_status'] {
-  if (assessment.classification.type === 'not-section-257') return 'out-of-scope'
+  // Out-of-scope is an answer-level determination (3+ flats, social landlord,
+  // outside Richmond) — NOT a function of Section 257 status. A purpose-built
+  // (not-Section-257) building is fully in scope and gets a complete assessment.
+  if (getOutOfScopeReason(assessment.answers)) return 'out-of-scope'
   if (assessment.report_generated_at) return 'complete'
   return 'in-progress'
 }

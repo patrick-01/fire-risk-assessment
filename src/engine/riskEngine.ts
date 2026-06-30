@@ -784,7 +784,7 @@ function computeCompartmentationFactors(answers: AnswerMap, sharedHall: boolean)
         'compartmentation',
         'normal',
         'unknown_risk',
-        'This 1950-1970 conversion has only been inspected visually — construction standards from this period are inconsistent.'
+        'This 1950-1970 building has only been inspected visually — construction standards from this period are inconsistent.'
       )
     )
   }

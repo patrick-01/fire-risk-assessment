@@ -1,0 +1,476 @@
+{
+  "schema_version": "2.0",
+  "rules_version": "2026-05-v3",
+  "app_version": "0.4.0",
+  "assessment_id": "a2500702-841a-4041-8a3c-632fb06a393f",
+  "created_at": "2026-06-29T14:28:32.775Z",
+  "last_edited_at": "2026-06-29T15:16:43.411Z",
+  "property": {
+    "address_line_1": "7 Darell Road",
+    "address_line_2": "North Sheen",
+    "town": "Richmond",
+    "postcode": "TW9 4LF",
+    "postcode_normalised": "TW9 4LF",
+    "flat_ref": "7-7a Darell"
+  },
+  "current_section": "setup",
+  "current_question_id": "results",
+  "answers": {
+    "P1": {
+      "value": "{\"address_line_1\":\"7 Darell Road\",\"address_line_2\":\"North Sheen\",\"town\":\"Richmond\",\"postcode\":\"TW9 4LF\"}",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:28:56.540Z"
+    },
+    "P2": {
+      "value": "7-7a Darell",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:29:07.673Z"
+    },
+    "A1": {
+      "value": "purpose-built",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T15:16:28.944Z"
+    },
+    "A3": {
+      "value": "2",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:30:14.056Z"
+    },
+    "A4": {
+      "value": "none_owner_occupied",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:30:16.660Z"
+    },
+    "A5": {
+      "value": "yes",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:30:19.344Z"
+    },
+    "B1": {
+      "value": "communal",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:30:22.927Z"
+    },
+    "F6a": {
+      "value": "yes",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:30:34.001Z"
+    },
+    "B7": {
+      "value": "yes",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:31:52.707Z"
+    },
+    "D5": {
+      "value": "yes_no_fire_door",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:32:30.300Z"
+    },
+    "D9": {
+      "value": "[\"combustible_materials\"]",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:32:55.767Z"
+    },
+    "D3": {
+      "value": "masonry",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:33:07.703Z"
+    },
+    "B3": {
+      "value": "yes",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:33:14.083Z"
+    },
+    "B4": {
+      "value": "2.5_4m",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:33:16.233Z"
+    },
+    "B5": {
+      "value": "no",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:33:18.842Z"
+    },
+    "B6": {
+      "value": "single_storey",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:33:21.635Z"
+    },
+    "B8": {
+      "value": "short",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:33:24.354Z"
+    },
+    "C1": {
+      "value": "yes",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:33:28.001Z"
+    },
+    "C1_type": {
+      "value": "other_unknown",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:33:30.982Z"
+    },
+    "C2": {
+      "value": "no",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:33:50.695Z"
+    },
+    "C3": {
+      "value": "yes",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:33:53.408Z"
+    },
+    "C4": {
+      "value": "yes",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:33:57.099Z"
+    },
+    "C5": {
+      "value": "no",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:34:09.258Z"
+    },
+    "C6": {
+      "value": "yes",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:34:21.212Z"
+    },
+    "C7": {
+      "value": "yes",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:34:31.412Z"
+    },
+    "C9a": {
+      "value": "no",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:34:36.257Z"
+    },
+    "C9b": {
+      "value": "yes",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:35:31.666Z"
+    },
+    "C9c": {
+      "value": "no",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:49:00.281Z"
+    },
+    "C9d": {
+      "value": "no",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:35:37.790Z"
+    },
+    "C9e": {
+      "value": "yes",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:35:50.273Z"
+    },
+    "C10": {
+      "value": "yes",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:36:14.402Z"
+    },
+    "C11": {
+      "value": "yes",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:36:20.681Z"
+    },
+    "C11a": {
+      "value": "no",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:36:26.577Z"
+    },
+    "C11b": {
+      "value": "yes",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:36:28.951Z"
+    },
+    "C11c": {
+      "value": "yes",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:36:31.569Z"
+    },
+    "C11d": {
+      "value": "no",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:36:34.244Z"
+    },
+    "C12": {
+      "value": "no",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:36:37.452Z"
+    },
+    "C13": {
+      "value": "yes",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:36:41.810Z"
+    },
+    "C14": {
+      "value": "lobby",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:36:48.369Z"
+    },
+    "B2": {
+      "value": "no",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:37:07.529Z"
+    },
+    "door_gf_construction": {
+      "value": "solid_timber_44mm",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:37:33.426Z"
+    },
+    "F1a": {
+      "value": "not_fitted",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:37:41.066Z"
+    },
+    "door_gf_fit": {
+      "value": "yes",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:37:50.689Z"
+    },
+    "door_gf_seals": {
+      "value": "none",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:38:01.719Z"
+    },
+    "door_uf_construction": {
+      "value": "solid_timber_thinner",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:38:06.550Z"
+    },
+    "F1b": {
+      "value": "not_fitted",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:38:12.373Z"
+    },
+    "door_uf_fit": {
+      "value": "yes",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:38:22.215Z"
+    },
+    "door_uf_seals": {
+      "value": "none",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:38:24.657Z"
+    },
+    "F6b": {
+      "value": "no",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:38:46.966Z"
+    },
+    "door_final_keyless": {
+      "value": "yes",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:38:58.563Z"
+    },
+    "F5": {
+      "value": "yes",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:39:25.776Z"
+    },
+    "D1": {
+      "value": "12.5mm_probable",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:39:44.078Z"
+    },
+    "D2": {
+      "value": "plasterboard",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:39:54.708Z"
+    },
+    "D4": {
+      "value": "no",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:40:18.541Z"
+    },
+    "D6": {
+      "value": "sound",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:40:21.171Z"
+    },
+    "D7": {
+      "value": "timber_plasterboard",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:41:04.503Z"
+    },
+    "D8": {
+      "value": "no",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:40:36.712Z"
+    },
+    "D10": {
+      "value": "plasterboard",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:41:36.611Z"
+    },
+    "D11": {
+      "value": "unknown",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:41:52.469Z"
+    },
+    "D12": {
+      "value": "unknown",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:42:03.732Z"
+    },
+    "D13": {
+      "value": "unknown",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:42:09.240Z"
+    },
+    "D14": {
+      "value": "visual_only",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:42:19.058Z"
+    },
+    "D15": {
+      "value": "none",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:42:23.602Z"
+    },
+    "D16": {
+      "value": "yes",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:42:29.131Z"
+    },
+    "D17": {
+      "value": "yes",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:42:40.290Z"
+    },
+    "D18": {
+      "value": "no",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:42:50.948Z"
+    },
+    "E1": {
+      "value": "d2",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:43:56.264Z"
+    },
+    "E2": {
+      "value": "[\"kitchen\",\"ground_flat_lobby\",\"upper_flat_lobby\"]",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:45:22.667Z"
+    },
+    "E3": {
+      "value": "mixed",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:45:29.876Z"
+    },
+    "E6a": {
+      "value": "no",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:45:41.675Z"
+    },
+    "E7": {
+      "value": "within_month",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:45:47.155Z"
+    },
+    "E4": {
+      "value": "no",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:45:58.921Z"
+    },
+    "E5": {
+      "value": "no",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:46:07.106Z"
+    },
+    "E6b": {
+      "value": "no",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:46:16.774Z"
+    },
+    "G1": {
+      "value": "within_12_months",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:46:23.223Z"
+    },
+    "G2": {
+      "value": "within_5_years",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:46:25.763Z"
+    },
+    "G4a": {
+      "value": "no",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:46:31.829Z"
+    },
+    "G3": {
+      "value": "no",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:46:44.587Z"
+    },
+    "H1": {
+      "value": "no",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:46:57.004Z"
+    },
+    "H2": {
+      "value": "no",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:47:07.051Z"
+    },
+    "H3": {
+      "value": "informal",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:47:11.758Z"
+    },
+    "H4": {
+      "value": "passive",
+      "confidence": "confirmed",
+      "answered_at": "2026-06-29T14:47:17.227Z"
+    }
+  },
+  "invalidated_answers": {
+    "A2": {
+      "previous_value": "yes",
+      "invalidated_at": "2026-06-29T15:16:28.944Z",
+      "reason": "Answer to A1 changed."
+    }
+  },
+  "classification": {
+    "type": "not-section-257",
+    "benchmark": "not-applicable",
+    "communal_entrance": "true",
+    "separate_entrance_mode": false,
+    "shared_escape_route": "yes",
+    "upper_flat_independent_exit": "no",
+    "upper_independent_escape_type": "none",
+    "upper_external_escape_viable": "no",
+    "upper_shared_route_dependency": "sole_route",
+    "inner_room_present": "yes",
+    "escape_windows": {
+      "bedroom_1": "does-not-qualify",
+      "bedroom_2": "does-not-qualify",
+      "living_room": "does-not-qualify"
+    },
+    "confidence": "confirmed",
+    "unresolved_reasons": [],
+    "risk_level": "high",
+    "risk_score": 15,
+    "risk_factors_present": [
+      "RF-C01",
+      "RF-C03",
+      "RF-C04",
+      "RF-D03",
+      "RF-D05",
+      "RF-S05",
+      "RF-E02",
+      "RF-E03",
+      "RF-H01",
+      "RF-H02",
+      "RF-H04"
+    ],
+    "stair_compartmentation_confidence": "low",
+    "stair_compartmentation_risk": "normal",
+    "ground_floor_escape_strategy": "via_rear_exit",
+    "upper_floor_escape_strategy": "front_door_only"
+  },
+  "report_generated_at": "2026-06-29T15:16:43.411Z"
+}

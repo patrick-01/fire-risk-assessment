@@ -48,12 +48,11 @@ export default function App() {
               <>
                 <p>
                   Based on your answers, this property does not fall within the scope of
-                  Version 1 of this tool, which supports only:
+                  this tool, which assesses:
                 </p>
                 <ul>
-                  <li>Buildings converted from a single dwelling into exactly two self-contained flats</li>
-                  <li>Conversions pre-dating 1991 or evidenced as non-compliant with Building Regulations 1991</li>
-                  <li>Both flats privately rented</li>
+                  <li>Buildings divided into exactly two self-contained flats — whether converted from a single house or purpose-built</li>
+                  <li>With at least one flat privately rented</li>
                   <li>Located in the London Borough of Richmond upon Thames</li>
                 </ul>
               </>

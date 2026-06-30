@@ -22,6 +22,7 @@ import { computeRisk } from './riskEngine'
 import { computeRemediesV2 } from './remedyEngine.v2'
 import { generateReportV2 } from './reportGenerator.v2'
 import type { AnswerMap, PropertyIdentity } from '../state/AppState'
+import { APP_VERSION } from '../state/AppState'
 
 // ---------------------------------------------------------------------------
 // Test helpers (mirrors remedyEngine.v2.test.ts)
@@ -120,7 +121,7 @@ describe('generateReportV2 — §17.1 section structure', () => {
 
   it('carries report metadata (app/rules version, property, classification, risk, remedies)', () => {
     const report = reportFor({ ...convertedS257(), B1: a('communal') })
-    expect(report.app_version).toBe('0.4.0')
+    expect(report.app_version).toBe(APP_VERSION)
     expect(report.rules_version).toBe('2026-06-v1')
     expect(report.rules_date).toBe('2026-06-12')
     expect(report.property).toEqual(PROPERTY)

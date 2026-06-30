@@ -320,8 +320,8 @@ export const QUESTIONS: Question[] = [
       'Is the shared entrance hall or common escape route used to escape by more than one household?',
     help_text:
       'Answer "Yes" if both the ground-floor flat and the upper flat depend on the same ' +
-      'shared hall or common escape route to reach the final exit door. This is typical in a ' +
-      'converted house where a single shared front door leads to a hall from which the ' +
+      'shared hall or common escape route to reach the final exit door. This is typical where ' +
+      'a single shared front door leads to a hall from which the ' +
       'ground-floor flat opens and a stair serves the upper flat. Answer "No" only if each ' +
       'flat has a completely independent exit that does not pass through any shared internal space.',
     show_when: [{ when_question: 'B1', has_value: 'communal' }],
@@ -1570,8 +1570,8 @@ export const QUESTIONS: Question[] = [
     type: 'single-choice',
     text: 'What is the main construction material of the stair enclosure walls?',
     help_text:
-      'The stair enclosure is often the single most important fire separation element in a ' +
-      'converted building. Masonry provides inherent fire resistance; plasterboard performance ' +
+      'The stair enclosure is often one of the most important fire separation elements ' +
+      'protecting the shared escape route. Masonry provides inherent fire resistance; plasterboard performance ' +
       'depends on thickness and board type; timber panelling provides negligible resistance.',
     show_when: [{ when_question: 'B1', has_value: 'communal' }],
     options: [
@@ -1591,10 +1591,10 @@ export const QUESTIONS: Question[] = [
     section: 'stair',
     section_position: 8,
     type: 'single-choice',
-    text: 'What period was this conversion carried out?',
+    text: 'What period was this building constructed or substantially altered?',
     help_text:
-      'Conversion period gives context to likely construction standards. Pre-1950 conversions ' +
-      'and 1950–1970 conversions often used materials and techniques that do not meet modern ' +
+      'The construction or alteration period gives context to likely construction standards. ' +
+      'Buildings from before 1950 and from 1950–1970 often used materials and techniques that do not meet modern ' +
       'compartmentation standards. Combined with low inspection confidence, the period affects ' +
       'how much weight can be placed on visual assessment alone.',
     show_when: [{ when_question: 'B1', has_value: 'communal' }],
@@ -1707,7 +1707,7 @@ export const QUESTIONS: Question[] = [
     text: 'Does the stair enclosure run continuously from ground level to the top of the building without gaps or breaks?',
     help_text:
       'A stair enclosure that is incomplete — for example where a section of wall is missing, ' +
-      'replaced with open balustrade, or interrupted by a mezzanine or loft conversion — ' +
+      'replaced with open balustrade, or interrupted by a mezzanine or later loft alteration — ' +
       'does not provide continuous compartmentation. Any break in continuity significantly ' +
       'reduces its effectiveness as a fire barrier.',
     show_when: [{ when_question: 'B1', has_value: 'communal' }],
@@ -1729,8 +1729,8 @@ export const QUESTIONS: Question[] = [
     help_text:
       'Concealed voids — such as spaces inside stud partitions, beneath the stair casing, ' +
       'or above suspended ceilings — can act as hidden fire paths between floors or dwellings ' +
-      'if they are not fire-stopped at each floor level. This is a known risk in conversions ' +
-      'where the original house structure has been subdivided.',
+      'if they are not fire-stopped at each floor level. This is a known risk wherever floors ' +
+      'or dwellings have been formed within an existing structure.',
     show_when: [{ when_question: 'B1', has_value: 'communal' }],
     options: [
       { value: 'yes', label: 'Yes — hidden voids or spaces are present or suspected' },

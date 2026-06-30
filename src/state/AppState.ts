@@ -11,11 +11,16 @@
 // Versioning
 // ---------------------------------------------------------------------------
 
-/** Increment when the saved assessment JSON shape changes incompatibly. */
-export const SCHEMA_VERSION = '2.0' as const
+/**
+ * Increment when the saved assessment JSON shape changes incompatibly.
+ * v3.0 — the v2-engine clean break: `Assessment.classification` now holds the
+ * `BuildingClassification` shape (origin / hmo / case_study_d10 separated from
+ * general LACORS guidance). v2.x assessments are routed to incompatible-legacy.
+ */
+export const SCHEMA_VERSION = '3.0' as const
 
 /** Increment when the app code ships (set by build/CI). */
-export const APP_VERSION = '0.4.0' as const
+export const APP_VERSION = '0.5.0' as const
 
 // ---------------------------------------------------------------------------
 // Confidence and uncertainty
@@ -213,7 +218,13 @@ export interface Assessment {
   current_question_id: string
   answers: AnswerMap
   invalidated_answers: InvalidatedAnswerMap
-  classification: Classification
+  /**
+   * v2 building classification (origin / HMO / Section-257 / Case Study D10 vs
+   * general LACORS guidance). Recomputed from `answers` on every edit and on
+   * load. The legal framework, risk and remedies are derived on demand in the
+   * report (not persisted), keeping `answers` the single source of truth.
+   */
+  classification: BuildingClassification
   report_generated_at: string | null
 }
 

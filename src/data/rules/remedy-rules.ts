@@ -829,8 +829,8 @@ export const REMEDY_RULES: RemedyRule[] = [
     risk_basis:
       'The staircase panelling material could not be confirmed. Under the CONSERVATIVE ' +
       'uncertainty policy, unknown panelling should be treated as potentially inadequate ' +
-      'until physically verified. Hardboard — a common material in older conversions — ' +
-      'provides no fire resistance. Open bannisters provide no enclosure at all. Both ' +
+      'until physically verified. Hardboard provides no fire resistance, and open ' +
+      'bannisters provide no enclosure at all. Both ' +
       'represent significant risks if the staircase is the primary escape route.',
     text:
       'The staircase panelling material has not been confirmed. Physical inspection is required ' +
@@ -950,7 +950,7 @@ export const REMEDY_RULES: RemedyRule[] = [
       'separation between two separate households. Where timber joists are exposed with no ' +
       'plasterboard ceiling lining below, fire can spread rapidly between the two flats. ' +
       'LACORS expects adequate separation between dwellings as part of the overall risk ' +
-      'assessment for converted buildings. Fire spreading from one flat to another would ' +
+      'assessment. Fire spreading from one flat to another would ' +
       'compromise the escape for occupants of the flat above.',
     text:
       'The floor/ceiling construction between the two flats does not appear to have adequate ' +
@@ -1034,7 +1034,7 @@ export const REMEDY_RULES: RemedyRule[] = [
     confidence: 'probable',
     risk_basis:
       'LACORS §14 identifies qualifying escape windows as a key component of the escape strategy ' +
-      'for upper flats in converted buildings. Where the main bedroom escape window does not ' +
+      'for upper flats. Where the main bedroom escape window does not ' +
       'qualify and no confirmed viable independent escape route exists, the staircase or front ' +
       'door is the only practical means of escape. This means any fire in the communal area or ' +
       'at the main exit leaves occupants with no alternative. This is a material risk factor that ' +
@@ -1245,9 +1245,9 @@ export const REMEDY_RULES: RemedyRule[] = [
     },
     confidence: 'confirmed',
     risk_basis:
-      'The staircase enclosure is typically the single most important fire separation ' +
-      'element in a converted two-flat building. Where the construction cannot be confirmed ' +
-      'by visual inspection alone — particularly in 1950–1970 conversions where substandard ' +
+      'The staircase enclosure may be one of the most important fire separation elements ' +
+      'protecting the shared escape route in a two-flat building. Where the construction cannot be confirmed ' +
+      'by visual inspection alone — particularly in buildings from the 1950–1970 period, where substandard ' +
       'materials were common — compartmentation uncertainty may significantly affect escape ' +
       'route protection for both households. LACORS §19 and §20 require adequate separation ' +
       'between the escape route and each dwelling.',

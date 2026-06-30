@@ -22,17 +22,16 @@ import type {
   AssessmentIndexEntry,
 } from './AppState'
 import { SCHEMA_VERSION, APP_VERSION } from './AppState'
-// The reducer still populates the v1 `Classification` shape consumed by the
-// not-yet-migrated remedy/report engines, so it calls the retained legacy
-// classifier. The v2 `classify`/`deriveLegalFramework` engine is wired in at
-// the Step 7 clean break.
-import { classifyLegacy as classify } from '../engine/classifier'
+// v2 engine: the reducer derives the `BuildingClassification` from the answer
+// map after every edit and on load. Risk, legal framework and remedies are
+// derived on demand by the report — `answers` remains the source of truth.
+import { classify } from '../engine/classifier'
 import {
   getTransitivelyInvalidatedIds,
   getNextQuestion,
   getOutOfScopeReason,
 } from '../engine/navigator'
-import { RULES_VERSION } from '../data/rules/remedy-rules'
+import { RULES_VERSION_V2 as RULES_VERSION } from '../data/rules/remedy-rules.v2'
 
 // ---------------------------------------------------------------------------
 // Actions
@@ -110,32 +109,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         current_question_id: 'P1',
         answers: {},
         invalidated_answers: {},
-        classification: {
-          type: 'unresolved',
-          benchmark: 'unknown',
-          communal_entrance: 'unknown',
-          separate_entrance_mode: false,
-          shared_escape_route: 'unknown',
-          upper_flat_independent_exit: 'unknown',
-          upper_independent_escape_type: 'unknown',
-          upper_external_escape_viable: 'unknown',
-          upper_shared_route_dependency: 'unknown',
-          inner_room_present: 'unknown',
-          escape_windows: {
-            bedroom_1: 'unknown',
-            bedroom_2: 'unknown',
-            living_room: 'unknown',
-          },
-          confidence: 'unresolved',
-          unresolved_reasons: ['Assessment not yet started.'],
-          risk_level: 'unresolved',
-          risk_score: 0,
-          risk_factors_present: [],
-          stair_compartmentation_confidence: 'unknown',
-          stair_compartmentation_risk: 'low',
-          ground_floor_escape_strategy: 'unknown',
-          upper_floor_escape_strategy: 'unknown',
-        },
+        classification: classify({}),
         report_generated_at: null,
       }
       return {
