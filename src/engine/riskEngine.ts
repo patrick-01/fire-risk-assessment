@@ -789,6 +789,50 @@ function computeCompartmentationFactors(answers: AnswerMap, sharedHall: boolean)
     )
   }
 
+  // Lower / ground-floor continuation of the protected route (D19), assessed
+  // separately from the upper enclosure (D10): a weaker or unverified lower
+  // section is "partial compartmentation uncertainty", not "whole stair weak".
+  const D19 = answers['D19']?.value
+  if (D19 === 'stud_plasterboard' || D19 === 'lath_plaster' || D19 === 'mixed') {
+    const lowerUnverified = D14 === 'visual_only' || D12 === 'unknown' || D12 === undefined
+    factors.push(
+      f(
+        'RF-S-LOWER',
+        'compartmentation',
+        'normal',
+        lowerUnverified ? 'unknown_risk' : 'known_risk',
+        lowerUnverified
+          ? 'The lower / ground-floor section of the protected route is stud/plasterboard or lath and plaster and its fire resistance has not been confirmed by inspection — partial compartmentation uncertainty, separate from the upper enclosure.'
+          : 'The lower / ground-floor section of the protected route is a lighter stud/plasterboard or lath-and-plaster construction — confirm it provides 30-minute fire resistance continuous with the masonry section (LACORS §19.4).'
+      )
+    )
+  } else if (D19 === 'unknown') {
+    factors.push(
+      f(
+        'RF-S-LOWER-UNK',
+        'compartmentation',
+        'normal',
+        'unknown_risk',
+        'The construction of the lower / ground-floor section of the protected route has not been confirmed.'
+      )
+    )
+  }
+
+  // Mixed-construction transition: where the upper enclosure is masonry but the
+  // lower section is stud/plasterboard, the junction is the point to inspect for
+  // continuity, gaps and fire stopping (LACORS §19.4/§19.7).
+  if (D10 === 'masonry' && (D19 === 'stud_plasterboard' || D19 === 'lath_plaster' || D19 === 'mixed')) {
+    factors.push(
+      f(
+        'RF-S-TRANSITION',
+        'compartmentation',
+        'normal',
+        'potential_risk',
+        'The protected route changes construction (masonry to stud/plasterboard) along its length; inspect the transition for continuity, gaps and fire stopping.'
+      )
+    )
+  }
+
   // §12.2 — do not output "low risk" merely because no defects are visible:
   // if the enclosure construction is unverified and no other factor has
   // already flagged it, emit an investigation factor.
@@ -941,27 +985,65 @@ function computeCommonPartsFactors(answers: AnswerMap, sharedHall: boolean): Ris
     )
   }
 
+  // Under-stairs / escape-route cupboard. Prefer the detailed sub-model
+  // (D21-D25); fall back to the coarse D5 fire-door question otherwise.
   const D5 = answers['D5']?.value
-  if (D5 === 'yes_no_fire_door') {
-    factors.push(
-      f(
-        'RF-D05',
-        'common_parts',
-        'normal',
-        'known_risk',
-        'A cupboard or meter cupboard opens onto the shared entrance hall without a fire-resisting door.'
-      )
-    )
+  const D22 = answers['D22']?.value
+  const cupboardExists = D5 === 'yes_fire_door' || D5 === 'yes_no_fire_door'
+
+  if (cupboardExists && D22 !== undefined) {
+    const D21raw = answers['D21']?.value
+    let contents: string[] = []
+    if (typeof D21raw === 'string' && D21raw) {
+      try {
+        const parsed = JSON.parse(D21raw)
+        if (Array.isArray(parsed)) contents = parsed as string[]
+      } catch {
+        // malformed JSON — skip
+      }
+    }
+    const hasMeter = contents.includes('gas_meter') || contents.includes('electricity_meter')
+    const hasCombustibleContent = contents.includes('storage_combustible')
+    const D23 = answers['D23']?.value
+    const D24 = answers['D24']?.value
+    const D25 = answers['D25']?.value
+    const notFireResisting = D22 === 'no_door' || D22 === 'lightweight_timber' || D22 === 'solid_timber'
+
+    if (hasMeter && notFireResisting) {
+      factors.push(f('RF-CUP-METER', 'common_parts', 'elevated', 'known_risk',
+        'A gas or electricity meter is housed in the under-stairs cupboard opening onto the escape route without a fire-resisting enclosure. LACORS §15.5 considers it best practice to enclose such equipment in fire-resisting construction.'))
+    } else if (notFireResisting) {
+      factors.push(f('RF-CUP-ENCLOSURE', 'common_parts', 'normal', 'known_risk',
+        'The under-stairs cupboard opening onto the escape route does not have a fire-resisting (FD30) door and enclosure (LACORS §15.4).'))
+    } else if (D22 === 'unknown') {
+      factors.push(f('RF-CUP-UNK', 'common_parts', 'normal', 'unknown_risk',
+        'The fire resistance of the under-stairs cupboard door / enclosure has not been confirmed.'))
+    }
+    if (D25 === 'yes' || hasCombustibleContent) {
+      factors.push(f('RF-CUP-COMBUST', 'common_parts', 'elevated', 'known_risk',
+        'Combustible materials are stored in the under-stairs cupboard within the escape route (LACORS §15.3).'))
+    }
+    if (D24 === 'no') {
+      factors.push(f('RF-CUP-SEAL', 'common_parts', 'normal', 'known_risk',
+        'Service penetrations around the cupboard or meters are not fire-stopped (LACORS §19.7).'))
+    } else if (D24 === 'unknown') {
+      factors.push(f('RF-CUP-SEAL-UNK', 'common_parts', 'low', 'unknown_risk',
+        'Whether service penetrations around the cupboard or meters are sealed has not been confirmed.'))
+    }
+    if (D23 === 'no' && (D22 === 'fd30' || D22 === 'solid_timber')) {
+      factors.push(f('RF-CUP-CLOSER', 'common_parts', 'normal', 'known_risk',
+        'The under-stairs cupboard door is not self-closing and may be left open across the escape route.'))
+    }
+    if (contents.includes('unknown')) {
+      factors.push(f('RF-CUP-CONTENTS-UNK', 'common_parts', 'low', 'unknown_risk',
+        'The contents of the under-stairs cupboard have not been confirmed.'))
+    }
+  } else if (D5 === 'yes_no_fire_door') {
+    factors.push(f('RF-D05', 'common_parts', 'normal', 'known_risk',
+      'A cupboard or meter cupboard opens onto the shared entrance hall without a fire-resisting door.'))
   } else if (D5 === 'not_sure') {
-    factors.push(
-      f(
-        'RF-D05-UNK',
-        'common_parts',
-        'low',
-        'unknown_risk',
-        'Whether a cupboard or meter cupboard opening onto the shared entrance hall has a fire-resisting door has not been confirmed.'
-      )
-    )
+    factors.push(f('RF-D05-UNK', 'common_parts', 'low', 'unknown_risk',
+      'Whether a cupboard or meter cupboard opening onto the shared entrance hall has a fire-resisting door has not been confirmed.'))
   }
 
   const D6 = answers['D6']?.value

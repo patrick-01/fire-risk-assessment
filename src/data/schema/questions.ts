@@ -385,10 +385,110 @@ export const QUESTIONS: Question[] = [
     required: true,
     scope: 'common',
   },
+  // --- Under-stairs / escape-route cupboard sub-model (LACORS §15.4/§15.5) ---
+  // Only asked where a cupboard opens onto the shared escape route (D5). A gas/
+  // electric meter or combustible storage in a protected route is a LACORS
+  // risk-based concern (§15.5 best practice is a fire-resisting enclosure), not
+  // a statutory breach in itself.
+  {
+    id: 'D21',
+    section: 'common-parts',
+    section_position: 5,
+    type: 'multi-choice',
+    text: 'What does the under-stairs / escape-route cupboard contain? Select all that apply.',
+    help_text:
+      'Gas or electric meters and distribution boards should ideally not be sited in escape ' +
+      'routes (LACORS §15.5). Where they are, best practice is to enclose them in fire-resisting ' +
+      'construction. Combustible storage in a protected route is separately a concern under §15.3.',
+    show_when: [{ when_question: 'D5', has_value: ['yes_fire_door', 'yes_no_fire_door'] }],
+    options: [
+      { value: 'gas_meter', label: 'Gas meter' },
+      { value: 'electricity_meter', label: 'Electricity meter / consumer unit' },
+      { value: 'storage_combustible', label: 'Storage / combustible materials' },
+      { value: 'other_services', label: 'Other services (water, telecoms, etc.)' },
+      { value: 'unknown', label: 'Unknown — not inspected' },
+    ],
+    required: true,
+    scope: 'common',
+  },
+  {
+    id: 'D22',
+    section: 'common-parts',
+    section_position: 6,
+    type: 'single-choice',
+    text: 'What type of door / enclosure does the under-stairs cupboard have?',
+    help_text:
+      'A fire-resisting (FD30) enclosure with a self-closer keeps a fire starting in the cupboard ' +
+      '(e.g. at a meter or in stored materials) out of the escape route (LACORS §15.4, §21.1).',
+    show_when: [{ when_question: 'D5', has_value: ['yes_fire_door', 'yes_no_fire_door'] }],
+    options: [
+      { value: 'no_door', label: 'No door — open to the escape route' },
+      { value: 'lightweight_timber', label: 'Lightweight timber door (e.g. hollow / panelled)' },
+      { value: 'solid_timber', label: 'Solid timber door' },
+      { value: 'fd30', label: 'Fire-resisting (FD30) door and enclosure' },
+      { value: 'unknown', label: 'Unknown' },
+    ],
+    uncertainty_behaviour: 'CONSERVATIVE',
+    required: true,
+    scope: 'common',
+  },
+  {
+    id: 'D23',
+    section: 'common-parts',
+    section_position: 7,
+    type: 'single-choice',
+    text: 'Does the under-stairs cupboard door self-close?',
+    show_when: [
+      { when_question: 'D5', has_value: ['yes_fire_door', 'yes_no_fire_door'] },
+      { when_question: 'D22', has_value: ['lightweight_timber', 'solid_timber', 'fd30', 'unknown'] },
+    ],
+    options: [
+      { value: 'yes', label: 'Yes — fitted with a working self-closer' },
+      { value: 'no', label: 'No self-closer' },
+      { value: 'not_applicable', label: 'Not applicable (no door)' },
+      { value: 'unknown', label: 'Unknown' },
+    ],
+    required: true,
+    scope: 'common',
+  },
+  {
+    id: 'D24',
+    section: 'common-parts',
+    section_position: 8,
+    type: 'single-choice',
+    text: 'Are service penetrations around the cupboard / meters sealed (fire-stopped)?',
+    help_text:
+      'Openings around pipes, cables and meter tails passing through the enclosure must be ' +
+      'fire-stopped to at least the same fire resistance as the construction (LACORS §19.7).',
+    show_when: [{ when_question: 'D5', has_value: ['yes_fire_door', 'yes_no_fire_door'] }],
+    options: [
+      { value: 'yes', label: 'Yes — penetrations sealed / fire-stopped' },
+      { value: 'no', label: 'No — unsealed gaps around services' },
+      { value: 'unknown', label: 'Unknown' },
+    ],
+    uncertainty_behaviour: 'CONSERVATIVE',
+    required: true,
+    scope: 'common',
+  },
+  {
+    id: 'D25',
+    section: 'common-parts',
+    section_position: 9,
+    type: 'single-choice',
+    text: 'Are combustible materials stored in the under-stairs cupboard?',
+    show_when: [{ when_question: 'D5', has_value: ['yes_fire_door', 'yes_no_fire_door'] }],
+    options: [
+      { value: 'yes', label: 'Yes — combustible materials stored in the cupboard' },
+      { value: 'no', label: 'No' },
+      { value: 'unknown', label: 'Unknown' },
+    ],
+    required: true,
+    scope: 'common',
+  },
   {
     id: 'D9',
     section: 'common-parts',
-    section_position: 5,
+    section_position: 10,
     type: 'multi-choice',
     text:
       'Are any of the following present in the shared entrance hall or common escape route? ' +
@@ -420,7 +520,7 @@ export const QUESTIONS: Question[] = [
   {
     id: 'D3',
     section: 'common-parts',
-    section_position: 6,
+    section_position: 11,
     type: 'single-choice',
     text: 'What is the wall between the ground-floor flat and the shared entrance hall made of?',
     show_when: [{ when_question: 'B1', has_value: 'communal' }],
@@ -1568,11 +1668,12 @@ export const QUESTIONS: Question[] = [
     section: 'stair',
     section_position: 7,
     type: 'single-choice',
-    text: 'What is the main construction material of the stair enclosure walls?',
+    text: 'What is the main construction material of the upper stair enclosure / stair-flight side walls?',
     help_text:
       'The stair enclosure is often one of the most important fire separation elements ' +
       'protecting the shared escape route. Masonry provides inherent fire resistance; plasterboard performance ' +
-      'depends on thickness and board type; timber panelling provides negligible resistance.',
+      'depends on thickness and board type; timber panelling provides negligible resistance. ' +
+      'The lower / ground-floor continuation of the route is captured separately (D19).',
     show_when: [{ when_question: 'B1', has_value: 'communal' }],
     options: [
       { value: 'masonry', label: 'Brick or masonry' },
@@ -1757,6 +1858,50 @@ export const QUESTIONS: Question[] = [
       { value: 'yes', label: 'Yes — the staircase is the sole shared escape route for both flats' },
       { value: 'no', label: 'No — at least one flat has an independent escape route not using this staircase' },
     ],
+    required: true,
+    scope: 'common',
+  },
+  {
+    id: 'D19',
+    section: 'stair',
+    section_position: 16,
+    type: 'single-choice',
+    text: 'What is the construction of the lower / ground-floor continuation of the stair enclosure or shared-route wall?',
+    help_text:
+      'Mixed construction is common: masonry alongside part of the route, changing to a ' +
+      'stud/plasterboard wall (sometimes with mineral-wool insulation) for the lower or ground-floor ' +
+      'section. LACORS §19.4 requires the protected route to be enclosed to 30-minute fire resistance ' +
+      'at all points, so this lower section is assessed separately from the upper stair enclosure (D10).',
+    show_when: [{ when_question: 'B1', has_value: 'communal' }],
+    options: [
+      { value: 'masonry', label: 'Brick or masonry' },
+      { value: 'stud_plasterboard', label: 'Stud wall with plasterboard' },
+      { value: 'lath_plaster', label: 'Lath and plaster' },
+      { value: 'mixed', label: 'Mixed — different materials in different sections' },
+      { value: 'unknown', label: 'Unknown' },
+    ],
+    uncertainty_behaviour: 'CONSERVATIVE',
+    required: true,
+    scope: 'common',
+  },
+  {
+    id: 'D20',
+    section: 'stair',
+    section_position: 17,
+    type: 'single-choice',
+    text: 'Where any part of the enclosure is stud/plasterboard, what insulation is within the stud void?',
+    help_text:
+      'Mineral wool / Rockwool within a stud partition can improve fire performance, but on its own ' +
+      'it is NOT proof of a 30-minute fire-resisting construction — the rating depends on a complete ' +
+      'tested construction (LACORS §19.3). Record it as supporting evidence, not as confirmation.',
+    show_when: [{ when_question: 'B1', has_value: 'communal' }],
+    options: [
+      { value: 'none', label: 'None — no insulation in the void' },
+      { value: 'mineral_wool', label: 'Mineral wool / Rockwool' },
+      { value: 'not_applicable', label: 'Not applicable — no stud/plasterboard section' },
+      { value: 'unknown', label: 'Unknown — void not inspected' },
+    ],
+    uncertainty_behaviour: 'ADVISORY_ONLY',
     required: true,
     scope: 'common',
   },
