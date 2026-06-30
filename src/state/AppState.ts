@@ -225,6 +225,34 @@ export interface BuildingClassification {
 }
 
 // ---------------------------------------------------------------------------
+// Stair compartmentation summary (derived — mixed-construction model, LACORS §19)
+// ---------------------------------------------------------------------------
+
+export type ComponentStatus = 'adequate' | 'weak' | 'uncertain' | 'none' | 'not_assessed'
+
+/**
+ * Component-level view of the protected route. Risk follows the WEAKEST relevant
+ * component plus inspection confidence — so masonry stair walls with a weak
+ * under-stairs cupboard are NOT reported as "the whole stair is weak". Mineral
+ * wool may raise confidence but is never treated as proof of fire resistance
+ * (LACORS §19.3).
+ */
+export interface StairCompartmentationSummary {
+  upper_stair_enclosure: ComponentStatus
+  lower_route_enclosure: ComponentStatus
+  under_stairs_cupboard: ComponentStatus
+  insulation: 'none' | 'mineral_wool' | 'not_applicable' | 'unknown'
+  weakest_component:
+    | 'upper_enclosure'
+    | 'lower_route'
+    | 'under_stairs_cupboard'
+    | 'none_identified'
+    | 'unknown'
+  confidence: 'high' | 'moderate' | 'low' | 'unknown'
+  investigation_required: boolean
+}
+
+// ---------------------------------------------------------------------------
 // Legal framework (§7)
 // ---------------------------------------------------------------------------
 

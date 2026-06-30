@@ -27,6 +27,8 @@ import type {
   EscapeWindowStatus,
   HmoClassification,
   LegalFrameworkAssessment,
+  ComponentStatus,
+  StairCompartmentationSummary,
 } from '../state/AppState'
 import { QUESTION_MAP } from '../data/schema/questions'
 import { hasUncertaintyBehaviour } from './uncertainty'
@@ -267,6 +269,87 @@ export function computeStairCompartmentationConfidence(
   }
 
   return 'unknown'
+}
+
+/**
+ * Component-level stair / protected-route compartmentation summary (LACORS §19).
+ * Pure helper consumed by the report. Risk follows the weakest relevant
+ * component and inspection confidence, not a single enclosure material.
+ */
+export function deriveStairCompartmentation(answers: AnswerMap): StairCompartmentationSummary {
+  const D10 = answers['D10']?.value
+  const D12 = answers['D12']?.value
+  const D14 = answers['D14']?.value
+  const D19 = answers['D19']?.value
+  const D20 = answers['D20']?.value
+  const D5 = answers['D5']?.value
+  const D22 = answers['D22']?.value
+
+  // Upper stair enclosure (D10), refined by board thickness (D12) + inspection (D14).
+  const upper: ComponentStatus =
+    D10 === undefined ? 'not_assessed'
+      : D10 === 'masonry' ? 'adequate'
+        : D10 === 'timber_panelling' ? 'weak'
+          : D10 === 'unknown' ? 'uncertain'
+            : D12 === 'under_9_5' ? 'weak'
+              : (D12 === '12_5' || D12 === 'double_layer') && D14 !== undefined && D14 !== 'visual_only'
+                ? 'adequate'
+                : 'uncertain'
+
+  // Lower / ground-floor continuation (D19). No lower-specific thickness question,
+  // so lighter constructions stay 'uncertain' until confirmed.
+  const lower: ComponentStatus =
+    D19 === undefined ? 'not_assessed' : D19 === 'masonry' ? 'adequate' : 'uncertain'
+
+  // Under-stairs cupboard (D5 + sub-model D22).
+  const cupboard: ComponentStatus =
+    D5 === 'no' ? 'none'
+      : D5 === undefined ? 'not_assessed'
+        : D5 === 'not_sure' ? 'uncertain'
+          : D22 === 'fd30' ? 'adequate'
+            : D22 === 'no_door' || D22 === 'lightweight_timber' ? 'weak'
+              : D22 === 'solid_timber' || D22 === 'unknown' ? 'uncertain'
+                : D5 === 'yes_fire_door' ? 'adequate' // coarse path, sub-model not answered
+                  : 'weak' // yes_no_fire_door, coarse path
+
+  const insulation: StairCompartmentationSummary['insulation'] =
+    D20 === 'mineral_wool' ? 'mineral_wool'
+      : D20 === 'none' ? 'none'
+        : D20 === 'not_applicable' ? 'not_applicable'
+          : 'unknown'
+
+  // Weakest component (weak > uncertain > adequate > none/not_assessed).
+  const rank: Record<ComponentStatus, number> = { weak: 3, uncertain: 2, adequate: 1, none: 0, not_assessed: 0 }
+  const components: Array<[StairCompartmentationSummary['weakest_component'], ComponentStatus]> = [
+    ['upper_enclosure', upper],
+    ['lower_route', lower],
+    ['under_stairs_cupboard', cupboard],
+  ]
+  const assessed = components.filter(([, status]) => status !== 'not_assessed')
+  let weakest_component: StairCompartmentationSummary['weakest_component']
+  if (assessed.length === 0) {
+    weakest_component = 'unknown'
+  } else {
+    const worst = assessed.reduce((a, b) => (rank[b[1]] > rank[a[1]] ? b : a))
+    weakest_component = rank[worst[1]] >= 2 ? worst[0] : 'none_identified'
+  }
+
+  const anyUncertain = upper === 'uncertain' || lower === 'uncertain' || cupboard === 'uncertain'
+  const confidence: StairCompartmentationSummary['confidence'] =
+    D14 === undefined ? 'unknown'
+      : anyUncertain || D14 === 'visual_only' ? 'low'
+        : D14 === 'edge_visible' ? 'moderate'
+          : 'high'
+
+  return {
+    upper_stair_enclosure: upper,
+    lower_route_enclosure: lower,
+    under_stairs_cupboard: cupboard,
+    insulation,
+    weakest_component,
+    confidence,
+    investigation_required: anyUncertain || weakest_component === 'unknown',
+  }
 }
 
 // ===========================================================================

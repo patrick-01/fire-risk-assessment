@@ -43,11 +43,14 @@ import type {
   RiskFactor,
   RiskKnowledge,
   RiskSeverity,
+  ComponentStatus,
+  StairCompartmentationSummary,
 } from '../state/AppState'
 import { APP_VERSION } from '../state/AppState'
 import { RULES_VERSION_V2, RULES_DATE_V2 } from '../data/rules/remedy-rules.v2'
 import { QUESTION_MAP } from '../data/schema/questions'
 import { shouldShowQuestion } from './navigator'
+import { deriveStairCompartmentation } from './classifier'
 
 // ---------------------------------------------------------------------------
 // Report types
@@ -347,7 +350,27 @@ function section9DoorsAndRouteProtection(risk: RiskAssessment): ReportSectionV2 
   return domainSection(9, 'Door and route protection assessment', intro, risk.domains.doors, factors, 'No door or route-protection risk factors identified.')
 }
 
-function section10StairCompartmentation(classification: BuildingClassification, risk: RiskAssessment): ReportSectionV2 {
+const COMPONENT_LABELS: Record<ComponentStatus, string> = {
+  adequate: 'appears adequate',
+  weak: 'weak / below benchmark',
+  uncertain: 'not confirmed',
+  none: 'none present',
+  not_assessed: 'not assessed',
+}
+
+const WEAKEST_COMPONENT_LABELS: Record<StairCompartmentationSummary['weakest_component'], string> = {
+  upper_enclosure: 'the upper stair enclosure',
+  lower_route: 'the lower / ground-floor section of the route',
+  under_stairs_cupboard: 'the under-stairs cupboard',
+  none_identified: 'no single weak component identified',
+  unknown: 'not yet established',
+}
+
+function section10StairCompartmentation(
+  classification: BuildingClassification,
+  risk: RiskAssessment,
+  answers: AnswerMap
+): ReportSectionV2 {
   if (classification.entrance_configuration === 'separate_private_entrances') {
     return {
       id: 10,
@@ -355,16 +378,41 @@ function section10StairCompartmentation(classification: BuildingClassification, 
       body: 'Not applicable — this property has separate private entrances and no shared staircase.',
     }
   }
-  const intro = 'Assessment of the construction and condition of the shared staircase enclosure.'
+
+  const sc = deriveStairCompartmentation(answers)
+  const insulationText =
+    sc.insulation === 'mineral_wool'
+      ? 'mineral wool / Rockwool present (supporting evidence only — not proof of fire resistance)'
+      : sc.insulation === 'none'
+        ? 'none'
+        : sc.insulation === 'not_applicable'
+          ? 'not applicable'
+          : 'not confirmed'
+
+  const summary = [
+    'The protected route is assessed by component (LACORS §19.4 requires 30-minute fire resistance ' +
+      'at all points, so it is not treated as a single material):',
+    `- Upper stair enclosure: ${COMPONENT_LABELS[sc.upper_stair_enclosure]}.`,
+    `- Lower / ground-floor section: ${COMPONENT_LABELS[sc.lower_route_enclosure]}.`,
+    `- Under-stairs cupboard: ${COMPONENT_LABELS[sc.under_stairs_cupboard]}.`,
+    `- Stud-void insulation: ${insulationText}.`,
+    `Weakest assessed component: ${WEAKEST_COMPONENT_LABELS[sc.weakest_component]}. ` +
+      `Inspection confidence: ${sc.confidence}.` +
+      (sc.investigation_required
+        ? ' Further investigation is recommended before relying on the compartmentation.'
+        : ''),
+  ].join('\n')
+
   const factors = risk.risk_factors.filter((factor) => factor.domain === 'compartmentation')
-  return domainSection(
-    10,
-    'Stair compartmentation assessment',
-    intro,
-    risk.domains.compartmentation,
-    factors,
-    'No stair-compartmentation risk factors identified.'
-  )
+  return {
+    id: 10,
+    title: 'Stair compartmentation assessment',
+    body: [
+      summary,
+      domainOverviewLine(risk.domains.compartmentation),
+      listFactors(factors, 'No stair-compartmentation risk factors identified.'),
+    ].join('\n'),
+  }
 }
 
 function section11AlarmAndDetection(risk: RiskAssessment): ReportSectionV2 {
@@ -494,7 +542,7 @@ export function generateReportV2(
     section7UpperFloorFlat(risk),
     section8ExternalEscapeRoute(classification, risk),
     section9DoorsAndRouteProtection(risk),
-    section10StairCompartmentation(classification, risk),
+    section10StairCompartmentation(classification, risk, answers),
     section11AlarmAndDetection(risk),
     section12KnownRisks(risk),
     section13PotentialRisks(risk),

@@ -35,8 +35,8 @@
 import type { RemedyRule, RuleCondition } from '../../state/AppState'
 import { REMEDY_RULES } from './remedy-rules'
 
-export const RULES_VERSION_V2 = '2026-06-v1' as const
-export const RULES_DATE_V2 = '2026-06-12' as const
+export const RULES_VERSION_V2 = '2026-06-v2' as const
+export const RULES_DATE_V2 = '2026-06-30' as const
 
 // ---------------------------------------------------------------------------
 // v1 lookup — reuse title/text/risk_basis/regulatory_refs verbatim
@@ -581,5 +581,127 @@ export const REMEDY_RULES_V2: RemedyRule[] = [
     risk_basis: v1('R-C10').risk_basis,
     regulatory_refs: v1('R-C10').regulatory_refs,
     confidence: 'probable',
+  },
+
+  // =========================================================================
+  // Mixed staircase construction & under-stairs cupboards (LACORS Part A).
+  // Text is inline (these rules are new in this pass, not reused from v1).
+  // The D10-benchmark rules carry downgrade_if so they become
+  // risk_based_recommendation for purpose-built buildings (case_study_d10 ===
+  // 'not_applicable'); none are legal_requirement — a meter enclosure or
+  // 30-minute separation upgrade is LACORS guidance, not statute.
+  // =========================================================================
+
+  {
+    id: 'R-CUP01',
+    title: 'Provide a fire-resisting enclosure to the under-stairs / meter cupboard',
+    legal_status: 'lacors_benchmark_recommendation',
+    downgrade_if: D10_NOT_APPLICABLE,
+    priority: 'P2_high',
+    applies_to: 'common_parts',
+    condition: anyOf(rf('RF-CUP-METER'), rf('RF-CUP-ENCLOSURE'), rf('RF-CUP-CLOSER')),
+    text:
+      'Form the under-stairs cupboard opening onto the shared escape route as a fire-resisting ' +
+      '(FD30) enclosure with a self-closing door. Where it houses a gas or electricity meter, LACORS ' +
+      '§15.5 regards a fire-resisting enclosure as best practice (the meter may remain provided it is ' +
+      'installed to the gas-safety / IEE regulations); otherwise obtain a competent-person review.',
+    risk_basis:
+      'A cupboard — especially a gas or electricity meter — opening onto the sole protected escape ' +
+      'route is a potential ignition source within the route. LACORS §15.4 requires cupboards in ' +
+      'protected routes to be fire-resisting and kept shut; §15.5 treats fire-resisting enclosure of ' +
+      'meters as best practice.',
+    regulatory_refs: ['LACORS §15.4', 'LACORS §15.5', 'LACORS §21.1'],
+    confidence: 'confirmed',
+  },
+  {
+    id: 'R-CUP02',
+    title: 'Remove combustible storage from the under-stairs cupboard / escape route',
+    legal_status: 'risk_based_recommendation',
+    priority: 'P3_medium',
+    applies_to: 'common_parts',
+    condition: rf('RF-CUP-COMBUST'),
+    text:
+      'Remove combustible materials stored in the under-stairs cupboard. A protected escape route ' +
+      'should be kept free of storage and fuel load so a fire cannot start in, or be fed by, materials ' +
+      'within the route.',
+    risk_basis:
+      'LACORS §15.3 requires protected routes to be kept free of storage and fire risks. Combustible ' +
+      'materials in an under-stairs cupboard within the escape route add fuel load to the one route ' +
+      'occupants depend on.',
+    regulatory_refs: ['LACORS §15.3'],
+    confidence: 'confirmed',
+  },
+  {
+    id: 'R-CUP03',
+    title: 'Fire-stop service penetrations around the cupboard / meters',
+    legal_status: 'lacors_benchmark_recommendation',
+    downgrade_if: D10_NOT_APPLICABLE,
+    priority: 'P3_medium',
+    applies_to: 'common_parts',
+    condition: rf('RF-CUP-SEAL'),
+    text:
+      'Seal (fire-stop) the openings around pipes, cables and meter tails passing through the cupboard ' +
+      'enclosure, using a product providing at least the same fire resistance as the surrounding ' +
+      'construction.',
+    risk_basis:
+      'LACORS §19.7 requires openings around services passing through fire-resisting construction to be ' +
+      'fire-stopped; otherwise smoke and fire bypass the enclosure.',
+    regulatory_refs: ['LACORS §19.7'],
+    confidence: 'confirmed',
+  },
+  {
+    id: 'R-CUP04',
+    title: 'Confirm the under-stairs cupboard construction and contents',
+    legal_status: 'further_investigation_required',
+    priority: 'investigate',
+    applies_to: 'common_parts',
+    condition: anyOf(rf('RF-CUP-UNK'), rf('RF-CUP-SEAL-UNK'), rf('RF-CUP-CONTENTS-UNK')),
+    text:
+      'Confirm the fire resistance of the under-stairs cupboard door and enclosure, what it contains, ' +
+      'and whether service penetrations are sealed. Do not assume adequacy until checked.',
+    risk_basis:
+      'The cupboard opens onto the protected escape route but its construction or contents have not ' +
+      'been confirmed (LACORS §15.4). The finding cannot be resolved without inspection.',
+    regulatory_refs: ['LACORS §15.4'],
+    confidence: 'unknown',
+  },
+  {
+    id: 'R-S04',
+    title: 'Confirm or upgrade the lower / ground-floor section of the protected route',
+    legal_status: 'lacors_benchmark_recommendation',
+    downgrade_if: D10_NOT_APPLICABLE,
+    priority: 'P3_medium',
+    applies_to: 'common_parts',
+    condition: rf('RF-S-LOWER'),
+    text:
+      'The lower / ground-floor section of the protected route is a lighter stud/plasterboard or ' +
+      'lath-and-plaster construction. Confirm by inspection, or upgrade, so it provides 30-minute fire ' +
+      'resistance continuous with the rest of the route. Mineral-wool insulation in the stud void can ' +
+      'help but is not on its own proof of a 30-minute construction.',
+    risk_basis:
+      'LACORS §19.4 requires the protected route to be enclosed to 30-minute fire resistance at all ' +
+      'points; a lighter lower section is a partial weakness separate from the upper stair walls. ' +
+      '§19.3 — a fire-resistance rating depends on a complete tested construction, not on insulation alone.',
+    regulatory_refs: ['LACORS §19.3', 'LACORS §19.4'],
+    confidence: 'probable',
+  },
+  {
+    id: 'R-S05',
+    title: 'Inspect the lower-route construction and any masonry-to-stud transition',
+    legal_status: 'further_investigation_required',
+    priority: 'investigate',
+    applies_to: 'common_parts',
+    condition: anyOf(rf('RF-S-LOWER-UNK'), rf('RF-S-TRANSITION')),
+    text:
+      'Inspect the construction of the lower / ground-floor section of the protected route, and any ' +
+      'point where the construction changes (for example masonry to stud/plasterboard), for continuity, ' +
+      'gaps and fire-stopping. Determining the exact construction may require a concealed inspection ' +
+      'opening or borescope rather than visual inspection alone.',
+    risk_basis:
+      'LACORS §19.6 notes the exact construction of an existing partition is difficult to determine ' +
+      'without invasive inspection; §19.4/§19.7 require continuity and fire-stopping at junctions. This ' +
+      'is an evidence gap to resolve, not grounds to replace construction by default.',
+    regulatory_refs: ['LACORS §19.4', 'LACORS §19.6', 'LACORS §19.7'],
+    confidence: 'unknown',
   },
 ]
