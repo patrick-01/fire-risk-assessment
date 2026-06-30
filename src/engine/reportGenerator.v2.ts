@@ -45,12 +45,13 @@ import type {
   RiskSeverity,
   ComponentStatus,
   StairCompartmentationSummary,
+  DetectionStrategySummary,
 } from '../state/AppState'
 import { APP_VERSION } from '../state/AppState'
 import { RULES_VERSION_V2, RULES_DATE_V2 } from '../data/rules/remedy-rules.v2'
 import { QUESTION_MAP } from '../data/schema/questions'
 import { shouldShowQuestion } from './navigator'
-import { deriveStairCompartmentation } from './classifier'
+import { deriveStairCompartmentation, deriveDetectionStrategy } from './classifier'
 
 // ---------------------------------------------------------------------------
 // Report types
@@ -415,10 +416,54 @@ function section10StairCompartmentation(
   }
 }
 
-function section11AlarmAndDetection(risk: RiskAssessment): ReportSectionV2 {
-  const intro = 'Assessment of smoke and heat alarm provision within the flats and common parts.'
+const DETECTION_GRADE_LABELS: Record<DetectionStrategySummary['common_parts'], string> = {
+  mains: 'mains-wired (Grade D)',
+  battery: 'battery-only (Grade F)',
+  none: 'none',
+  not_applicable: 'not applicable',
+  unknown: 'not confirmed',
+}
+
+const INTERLINK_LABELS: Record<string, string> = {
+  both: 'both flats',
+  partial: 'one flat / via common parts only',
+  neither: 'neither flat',
+  yes: 'yes',
+  no: 'no',
+  not_applicable: 'not applicable',
+  unknown: 'not confirmed',
+}
+
+function section11AlarmAndDetection(
+  classification: BuildingClassification,
+  risk: RiskAssessment,
+  answers: AnswerMap
+): ReportSectionV2 {
+  const ds = deriveDetectionStrategy(answers, classification)
+  const lines = [
+    'Detection is assessed per scope (LACORS §22 / Case Study D10 expects a mixed system, not a ' +
+      'single building-wide grade):',
+    `- Common parts: ${DETECTION_GRADE_LABELS[ds.common_parts]}.`,
+    `- Ground-floor flat (hallway smoke): ${DETECTION_GRADE_LABELS[ds.ground_flat]}.`,
+    `- Upper flat (hallway smoke): ${DETECTION_GRADE_LABELS[ds.upper_flat]}.`,
+    `- Interlinking within flats: ${INTERLINK_LABELS[ds.within_flat_interlink]}.`,
+    `- Cross-flat / common-parts interlinking: ${INTERLINK_LABELS[ds.cross_or_common_interlink]} ` +
+      '(reported for information — cross-flat interlinking is not a blanket LACORS requirement).',
+    ds.mixed_provision
+      ? 'Provision is MIXED between the flats — the building must not be assessed as having a single uniform alarm grade.'
+      : '',
+  ].filter(Boolean)
+
   const factors = risk.risk_factors.filter((factor) => factor.domain === 'detection')
-  return domainSection(11, 'Alarm and detection assessment', intro, risk.domains.detection, factors, 'No alarm or detection risk factors identified.')
+  return {
+    id: 11,
+    title: 'Fire detection strategy',
+    body: [
+      lines.join('\n'),
+      domainOverviewLine(risk.domains.detection),
+      listFactors(factors, 'No alarm or detection risk factors identified.'),
+    ].join('\n'),
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -543,7 +588,7 @@ export function generateReportV2(
     section8ExternalEscapeRoute(classification, risk),
     section9DoorsAndRouteProtection(risk),
     section10StairCompartmentation(classification, risk, answers),
-    section11AlarmAndDetection(risk),
+    section11AlarmAndDetection(classification, risk, answers),
     section12KnownRisks(risk),
     section13PotentialRisks(risk),
     section14UnknownRisks(risk, remedies),

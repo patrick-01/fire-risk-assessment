@@ -88,7 +88,7 @@ const EXPECTED_TITLES = [
   'External escape route assessment',
   'Door and route protection assessment',
   'Stair compartmentation assessment',
-  'Alarm and detection assessment',
+  'Fire detection strategy',
   'Known risks',
   'Potential risks',
   'Unknown risks / further investigation',
@@ -159,7 +159,7 @@ describe('generateReportV2 — sections 3-4', () => {
 
 describe('generateReportV2 — sections 12-14 risk partitioning', () => {
   it('a known risk (no smoke alarms) appears in section 12, not 13 or 14', () => {
-    const report = reportFor({ ...convertedS257(), B1: a('communal'), E1: a('none') })
+    const report = reportFor({ ...convertedS257(), B1: a('communal'), E1g: a('none'), E1u: a('none') })
     const known = report.sections.find((s) => s.id === 12)!
     const potential = report.sections.find((s) => s.id === 13)!
     const unknown = report.sections.find((s) => s.id === 14)!
@@ -170,7 +170,7 @@ describe('generateReportV2 — sections 12-14 risk partitioning', () => {
   })
 
   it('an unknown risk factor (uncertain alarm type) appears in section 14, tagged "Further investigation required"', () => {
-    const report = reportFor({ ...convertedS257(), B1: a('communal'), E1: a('not_sure') })
+    const report = reportFor({ ...convertedS257(), B1: a('communal'), E1g: a('unknown'), E1u: a('unknown') })
     const unknown = report.sections.find((s) => s.id === 14)!
     expect(unknown.body).toMatch(/Further investigation required:/)
   })
@@ -191,7 +191,7 @@ describe('generateReportV2 — sections 12-14 risk partitioning', () => {
 
 describe('generateReportV2 — sections 15-17 tone and ordering', () => {
   it('section 15 only contains "Required:" remedy lines', () => {
-    const report = reportFor({ ...convertedS257(), B1: a('communal'), G1: a('overdue'), E1: a('none') })
+    const report = reportFor({ ...convertedS257(), B1: a('communal'), G1: a('overdue'), E1g: a('none'), E1u: a('none') })
     const section15 = report.sections.find((s) => s.id === 15)!
     expect(report.remedies.legal_requirements.length).toBeGreaterThan(0)
     for (const remedy of report.remedies.legal_requirements) {
@@ -217,7 +217,7 @@ describe('generateReportV2 — sections 15-17 tone and ordering', () => {
   })
 
   it('section 17 lists the remediation schedule in priority order', () => {
-    const report = reportFor({ ...convertedS257(), B1: a('communal'), D1: a('hardboard'), E1: a('none') })
+    const report = reportFor({ ...convertedS257(), B1: a('communal'), D1: a('hardboard'), E1g: a('none'), E1u: a('none') })
     const section17 = report.sections.find((s) => s.id === 17)!
     const PRIORITY_ORDER = ['P1_urgent', 'P2_high', 'P3_medium', 'P4_low', 'investigate']
 

@@ -90,7 +90,7 @@ describe('computeRemediesV2 — shape', () => {
   })
 
   it('remediation_schedule contains every active remedy, priority-ordered', () => {
-    const summary = remediesFor({ ...convertedS257(), B1: a('communal'), D1: a('hardboard'), E1: a('none') })
+    const summary = remediesFor({ ...convertedS257(), B1: a('communal'), D1: a('hardboard'), E1g: a('none'), E1u: a('none') })
     const allGrouped = [
       ...summary.legal_requirements,
       ...summary.recommendations,
@@ -136,7 +136,7 @@ describe('Scenario A — purpose-built building (§22 D10 suppression)', () => {
   })
 
   it('statutory items (gas, smoke alarms) remain legal requirements regardless of building origin', () => {
-    const summary = remediesFor({ ...purposeBuilt(), B1: a('communal'), G1: a('overdue'), E1: a('none') })
+    const summary = remediesFor({ ...purposeBuilt(), B1: a('communal'), G1: a('overdue'), E1g: a('none'), E1u: a('none') })
     expect(find(summary.legal_requirements, 'R-G01')).toBeDefined()
     expect(find(summary.legal_requirements, 'R-E04')).toBeDefined()
   })

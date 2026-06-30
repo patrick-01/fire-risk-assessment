@@ -72,7 +72,7 @@ function sharedEvidence(): AnswerMap {
     D10: a('timber_panelling'),
     D11: a('1950_1970'),
     D14: a('visual_only'),
-    E1: a('none'),
+    E1g: a('none'), E1u: a('none'),
     G4a: a('yes'),
     G4b: a('no'),
   }

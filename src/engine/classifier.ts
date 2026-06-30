@@ -29,6 +29,7 @@ import type {
   LegalFrameworkAssessment,
   ComponentStatus,
   StairCompartmentationSummary,
+  DetectionStrategySummary,
 } from '../state/AppState'
 import { QUESTION_MAP } from '../data/schema/questions'
 import { hasUncertaintyBehaviour } from './uncertainty'
@@ -349,6 +350,59 @@ export function deriveStairCompartmentation(answers: AnswerMap): StairCompartmen
     weakest_component,
     confidence,
     investigation_required: anyUncertain || weakest_component === 'unknown',
+  }
+}
+
+/**
+ * Per-scope fire-detection strategy (LACORS §22 / Case Study D10). Pure helper
+ * consumed by the report. Each flat is assessed separately; cross-flat
+ * interlinking is reported for information, not as a requirement.
+ */
+export function deriveDetectionStrategy(
+  answers: AnswerMap,
+  classification: BuildingClassification
+): DetectionStrategySummary {
+  const sharedHall =
+    classification.entrance_configuration === 'shared_entrance_hall' ||
+    classification.entrance_configuration === 'shared_hall_and_shared_stair'
+
+  const smokeOf = (v: AnswerValue): 'mains' | 'battery' | 'none' | 'unknown' =>
+    v === 'd1' || v === 'd2' ? 'mains' : v === 'battery_only' ? 'battery' : v === 'none' ? 'none' : 'unknown'
+  const ground_flat = smokeOf(answers['E1g']?.value ?? null)
+  const upper_flat = smokeOf(answers['E1u']?.value ?? null)
+
+  let common_parts: DetectionStrategySummary['common_parts'] = 'not_applicable'
+  if (sharedHall) {
+    const E4 = answers['E4']?.value
+    common_parts =
+      E4 === 'yes_mains' ? 'mains' : E4 === 'yes_battery' ? 'battery' : E4 === 'no' ? 'none' : 'unknown'
+  }
+
+  const linkOf = (v: AnswerValue): boolean | null => (v === 'yes' ? true : v === 'no' ? false : null)
+  const g = linkOf(answers['E6g']?.value ?? null)
+  const u = linkOf(answers['E6u']?.value ?? null)
+  const within_flat_interlink: DetectionStrategySummary['within_flat_interlink'] =
+    g === null || u === null ? 'unknown' : g && u ? 'both' : !g && !u ? 'neither' : 'partial'
+
+  let cross_or_common_interlink: DetectionStrategySummary['cross_or_common_interlink'] = 'not_applicable'
+  if (sharedHall) {
+    const E6b = answers['E6b']?.value
+    cross_or_common_interlink =
+      E6b === 'yes' ? 'yes' : E6b === 'communal_only' ? 'partial' : E6b === 'no' ? 'no' : 'unknown'
+  }
+
+  const rankOf = (s: 'mains' | 'battery' | 'none' | 'unknown'): number | null =>
+    s === 'mains' ? 2 : s === 'battery' ? 1 : s === 'none' ? 0 : null
+  const gr = rankOf(ground_flat)
+  const ur = rankOf(upper_flat)
+
+  return {
+    common_parts,
+    ground_flat,
+    upper_flat,
+    within_flat_interlink,
+    cross_or_common_interlink,
+    mixed_provision: gr !== null && ur !== null && gr !== ur,
   }
 }
 

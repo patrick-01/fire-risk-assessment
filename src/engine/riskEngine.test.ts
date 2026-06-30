@@ -80,7 +80,7 @@ describe('computeRisk — shape and roll-up', () => {
   })
 
   it('is pure — identical inputs produce identical output', () => {
-    const answers = { ...convertedS257(), B1: a('communal'), E1: a('none') }
+    const answers = { ...convertedS257(), B1: a('communal'), E1g: a('none'), E1u: a('none') }
     const classification = classify(answers)
     expect(computeRisk(answers, classification)).toEqual(computeRisk(answers, classification))
   })
@@ -275,14 +275,15 @@ describe('§15.3 — door risk weighting', () => {
 
 describe('detection domain', () => {
   it('no smoke/heat alarms fitted is High severity', () => {
-    const answers: AnswerMap = { ...convertedS257(), E1: a('none') }
+    const answers: AnswerMap = { ...convertedS257(), E1g: a('none'), E1u: a('none') }
     const result = riskFor(answers)
     expect(result.domains.detection.severity).toBe('high')
-    expect(factor(result, 'RF-DET-NONE')).toBeDefined()
+    expect(factor(result, 'RF-DET-GF-NONE')).toBeDefined()
+    expect(factor(result, 'RF-DET-UF-NONE')).toBeDefined()
   })
 
   it('alarms that have never been tested produce an unknown_risk factor, not a clean bill of health', () => {
-    const answers: AnswerMap = { ...convertedS257(), E1: a('d1'), E7: a('never_unknown') }
+    const answers: AnswerMap = { ...convertedS257(), E1g: a('d1'), E1u: a('d1'), E7: a('never_unknown') }
     const result = riskFor(answers)
     const stale = factor(result, 'RF-DET-NEVER')
     expect(stale?.knowledge).toBe('unknown_risk')

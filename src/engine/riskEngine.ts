@@ -511,73 +511,85 @@ function computeDoorFactors(answers: AnswerMap, sharedHall: boolean, sharedRoute
 // DETECTION domain
 // ---------------------------------------------------------------------------
 
+/** Smoke-grade rank for comparing the two flats (mixed-provision detection). */
+function smokeGradeRank(value: unknown): number | null {
+  if (value === 'none') return 0
+  if (value === 'battery_only') return 1
+  if (value === 'd1' || value === 'd2') return 2
+  return null // unknown / unanswered
+}
+
 /**
- * §13 — within-flat detection (E1, E6a, E7) applies regardless of entrance
- * configuration. Common-parts detection (E4, E5, E6b) is only assessed where
- * common parts exist. Cross-flat/common-parts interlinking (E6b) is kept
- * low-severity/advisory per §13.2 — it is not a blanket requirement.
+ * §13 / Case Study D10 — within-flat detection for ONE flat: smoke in the
+ * hallway, heat in the kitchen, interlinking within the flat. A rented flat with
+ * no smoke alarm is a statutory gap; battery-only is below the Grade D benchmark
+ * (risk-based, not a breach in a non-HMO). Power source is captured at smoke level.
  */
-function computeDetectionFactors(answers: AnswerMap, sharedHall: boolean): RiskFactor[] {
+function computeFlatDetectionFactors(
+  answers: AnswerMap,
+  prefix: 'GF' | 'UF',
+  label: string,
+  smokeId: string,
+  heatId: string,
+  linkId: string
+): RiskFactor[] {
   const factors: RiskFactor[] = []
 
-  const E1 = answers['E1']?.value
-  if (E1 === 'none') {
-    factors.push(
-      f('RF-DET-NONE', 'detection', 'high', 'known_risk', 'No smoke or heat alarms are fitted within the flats.')
-    )
-  } else if (E1 === 'battery_only') {
-    factors.push(
-      f(
-        'RF-DET-BATTERY',
-        'detection',
-        'elevated',
-        'known_risk',
-        'Alarms within the flats are battery-only (Grade F) with no mains connection.'
-      )
-    )
-  } else if (E1 === 'mixed') {
-    factors.push(
-      f(
-        'RF-DET-MIXED',
-        'detection',
-        'normal',
-        'known_risk',
-        'Alarms within the flats are a mix of mains-wired and battery-only.'
-      )
-    )
-  } else if (E1 === 'not_sure') {
-    factors.push(
-      f(
-        'RF-DET-TYPE-UNK',
-        'detection',
-        'normal',
-        'unknown_risk',
-        'The type and power source of the alarms within the flats has not been confirmed.'
-      )
-    )
+  const smoke = answers[smokeId]?.value
+  if (smoke === 'none') {
+    factors.push(f(`RF-DET-${prefix}-NONE`, 'detection', 'high', 'known_risk',
+      `${label} has no smoke alarm in its hallway/lobby — a working smoke alarm on the storey is a statutory requirement for a rented dwelling.`))
+  } else if (smoke === 'battery_only') {
+    factors.push(f(`RF-DET-${prefix}-BATTERY`, 'detection', 'elevated', 'known_risk',
+      `${label} relies on a battery-only (Grade F) smoke alarm rather than a mains-wired Grade D alarm.`))
+  } else if (smoke === 'unknown') {
+    factors.push(f(`RF-DET-${prefix}-UNK`, 'detection', 'normal', 'unknown_risk',
+      `The smoke alarm provision in ${label.toLowerCase()} has not been confirmed.`))
   }
 
-  const E6a = answers['E6a']?.value
-  if (E6a === 'no' || E6a === 'partial') {
-    factors.push(
-      f(
-        'RF-DET-LINK',
-        'detection',
-        'normal',
-        'known_risk',
-        'Alarms within at least one flat are not fully interlinked, reducing early warning to other rooms.'
-      )
-    )
-  } else if (E6a === 'not_yet_verified' || E6a === 'not_sure') {
-    factors.push(
-      f(
-        'RF-DET-LINK-UNK',
-        'detection',
-        'normal',
-        'unknown_risk',
-        'Whether alarms within each flat are interlinked has not been verified.'
-      )
-    )
+  const heat = answers[heatId]?.value
+  if (heat === 'none') {
+    factors.push(f(`RF-DET-${prefix}-KITCHEN`, 'detection', 'normal', 'known_risk',
+      `${label} has no heat detector in the kitchen (LACORS LD2 / Case Study D10 includes kitchen detection).`))
+  } else if (heat === 'unknown') {
+    factors.push(f(`RF-DET-${prefix}-KITCHEN-UNK`, 'detection', 'low', 'unknown_risk',
+      `Whether ${label.toLowerCase()} has a kitchen heat detector has not been confirmed.`))
+  }
+
+  const link = answers[linkId]?.value
+  if (link === 'no') {
+    factors.push(f(`RF-DET-${prefix}-LINK`, 'detection', 'normal', 'known_risk',
+      `Alarms within ${label.toLowerCase()} are not interlinked with each other.`))
+  } else if (link === 'unknown') {
+    factors.push(f(`RF-DET-${prefix}-LINK-UNK`, 'detection', 'low', 'unknown_risk',
+      `Whether alarms within ${label.toLowerCase()} are interlinked has not been verified.`))
+  }
+
+  return factors
+}
+
+/**
+ * §13 — within-flat detection is assessed PER FLAT (E1g/E3g/E6g and
+ * E1u/E3u/E6u), so a mixed provision is reported as such rather than collapsed
+ * to one building-wide grade. Common-parts detection (E4, E5, E6b) is only
+ * assessed where common parts exist; cross-flat interlinking (E6b) stays
+ * advisory — it is NOT a blanket requirement (D10 keeps flats stand-alone).
+ */
+function computeDetectionFactors(answers: AnswerMap, sharedHall: boolean): RiskFactor[] {
+  const factors: RiskFactor[] = [
+    ...computeFlatDetectionFactors(answers, 'GF', 'The ground-floor flat', 'E1g', 'E3g', 'E6g'),
+    ...computeFlatDetectionFactors(answers, 'UF', 'The upper flat', 'E1u', 'E3u', 'E6u'),
+  ]
+
+  // Mixed detection provision — the two flats differ in smoke-alarm grade.
+  const gRank = smokeGradeRank(answers['E1g']?.value)
+  const uRank = smokeGradeRank(answers['E1u']?.value)
+  if (gRank !== null && uRank !== null && gRank !== uRank) {
+    const weaker = gRank < uRank ? 'ground-floor flat' : 'upper flat'
+    const stronger = gRank < uRank ? 'upper flat' : 'ground-floor flat'
+    factors.push(f('RF-DET-MIXED-PROVISION', 'detection', 'normal', 'known_risk',
+      `Detection provision is mixed: the ${weaker} has weaker smoke detection than the ${stronger}. ` +
+        'The building should not be assessed as having a single uniform alarm grade.'))
   }
 
   const E7 = answers['E7']?.value

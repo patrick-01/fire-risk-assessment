@@ -73,7 +73,7 @@ export function scenarioC(): AnswerMap {
     B1: a('communal'),
     D1: a('hardboard'),
     D10: a('timber_panelling'),
-    E1: a('none'),
+    E1g: a('none'), E1u: a('none'),
   }
 }
 

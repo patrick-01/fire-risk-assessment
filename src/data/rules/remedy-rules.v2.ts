@@ -35,7 +35,7 @@
 import type { RemedyRule, RuleCondition } from '../../state/AppState'
 import { REMEDY_RULES } from './remedy-rules'
 
-export const RULES_VERSION_V2 = '2026-06-v2' as const
+export const RULES_VERSION_V2 = '2026-06-v3' as const
 export const RULES_DATE_V2 = '2026-06-30' as const
 
 // ---------------------------------------------------------------------------
@@ -119,7 +119,7 @@ export const REMEDY_RULES_V2: RemedyRule[] = [
     legal_status: 'legal_requirement',
     priority: 'P1_urgent',
     applies_to: 'building',
-    condition: rf('RF-DET-NONE'),
+    condition: anyOf(rf('RF-DET-GF-NONE'), rf('RF-DET-UF-NONE')),
     text: v1('R-E04').text,
     risk_basis: v1('R-E04').risk_basis,
     regulatory_refs: v1('R-E04').regulatory_refs,
@@ -183,7 +183,7 @@ export const REMEDY_RULES_V2: RemedyRule[] = [
     legal_status: 'risk_based_recommendation',
     priority: 'P2_high',
     applies_to: 'building',
-    condition: anyOf(rf('RF-DET-BATTERY'), rf('RF-DET-MIXED'), rf('RF-DET-TYPE-UNK')),
+    condition: anyOf(rf('RF-DET-GF-BATTERY'), rf('RF-DET-UF-BATTERY')),
     text: v1('R-E01').text,
     risk_basis: v1('R-E01').risk_basis,
     regulatory_refs: v1('R-E01').regulatory_refs,
@@ -193,7 +193,8 @@ export const REMEDY_RULES_V2: RemedyRule[] = [
   {
     id: 'R-E02',
     title: v1('R-E02').title,
-    legal_status: 'risk_based_recommendation',
+    legal_status: 'lacors_benchmark_recommendation',
+    downgrade_if: D10_NOT_APPLICABLE,
     priority: 'P2_high',
     applies_to: 'common_parts',
     condition: anyOf(rf('RF-DET-COMMON-BATTERY'), rf('RF-DET-COMMON-NONE'), rf('RF-DET-COMMON-UNK')),
@@ -206,7 +207,8 @@ export const REMEDY_RULES_V2: RemedyRule[] = [
   {
     id: 'R-E03',
     title: v1('R-E03').title,
-    legal_status: 'risk_based_recommendation',
+    legal_status: 'lacors_benchmark_recommendation',
+    downgrade_if: D10_NOT_APPLICABLE,
     priority: 'P3_medium',
     applies_to: 'common_parts',
     condition: anyOf(rf('RF-DET-LOBBY-PARTIAL'), rf('RF-DET-LOBBY-NONE'), rf('RF-DET-LOBBY-UNK')),
@@ -235,7 +237,7 @@ export const REMEDY_RULES_V2: RemedyRule[] = [
     legal_status: 'risk_based_recommendation',
     priority: 'P3_medium',
     applies_to: 'building',
-    condition: anyOf(rf('RF-DET-LINK'), rf('RF-DET-LINK-UNK')),
+    condition: anyOf(rf('RF-DET-GF-LINK'), rf('RF-DET-UF-LINK')),
     text: v1('R-E06').text,
     risk_basis: v1('R-E06').risk_basis,
     regulatory_refs: v1('R-E06').regulatory_refs,
@@ -253,6 +255,68 @@ export const REMEDY_RULES_V2: RemedyRule[] = [
     risk_basis: v1('R-E06b').risk_basis,
     regulatory_refs: v1('R-E06b').regulatory_refs,
     confidence: 'probable',
+  },
+
+  // Per-flat detection (Part B) — mixed provision, kitchen heat, and the
+  // within-flat investigation gap. Inline text (new rules).
+  {
+    id: 'R-E07',
+    title: 'Assess detection per flat and level up the weaker flat',
+    legal_status: 'advisory_good_practice',
+    priority: 'P4_low',
+    applies_to: 'building',
+    condition: rf('RF-DET-MIXED-PROVISION'),
+    text:
+      'The flats have different standards of detection. Assess and record detection per flat rather ' +
+      'than assigning the building a single alarm grade, and bring the weaker flat up to the same ' +
+      'mains-wired (Grade D) standard as the stronger flat.',
+    risk_basis:
+      'LACORS / BS 5839-6 treat detection per dwelling. Where one flat has mains-interlinked alarms ' +
+      'and the other battery-only, the building has no uniform standard and the weaker flat is the ' +
+      'limiting factor.',
+    regulatory_refs: ['LACORS §22', 'BS 5839-6'],
+    confidence: 'confirmed',
+  },
+  {
+    id: 'R-E08',
+    title: 'Provide an interlinked heat detector in the kitchen',
+    legal_status: 'risk_based_recommendation',
+    priority: 'P3_medium',
+    applies_to: 'building',
+    condition: anyOf(rf('RF-DET-GF-KITCHEN'), rf('RF-DET-UF-KITCHEN')),
+    text:
+      'Provide a heat detector (not a smoke alarm, to avoid nuisance alarms from cooking) in the ' +
+      'kitchen of the affected flat, interlinked with that flat\'s other alarms.',
+    risk_basis:
+      'LACORS LD2 / Case Study D10 include detection in the kitchen as a higher-risk room. A heat ' +
+      'detector gives early warning of a kitchen fire — the most common ignition point — without the ' +
+      'nuisance alarms a smoke detector would cause.',
+    regulatory_refs: ['LACORS §22.11', 'BS 5839-6 LD2'],
+    confidence: 'probable',
+  },
+  {
+    id: 'R-E09',
+    title: 'Confirm the within-flat detection provision',
+    legal_status: 'further_investigation_required',
+    priority: 'investigate',
+    applies_to: 'building',
+    condition: anyOf(
+      rf('RF-DET-GF-UNK'),
+      rf('RF-DET-UF-UNK'),
+      rf('RF-DET-GF-KITCHEN-UNK'),
+      rf('RF-DET-UF-KITCHEN-UNK'),
+      rf('RF-DET-GF-LINK-UNK'),
+      rf('RF-DET-UF-LINK-UNK')
+    ),
+    text:
+      'Confirm the smoke and heat alarm provision and interlinking within each flat (type, power ' +
+      'source, and whether the alarms sound together). Detection cannot be fully assessed until this ' +
+      'is known.',
+    risk_basis:
+      'The within-flat detection could not be confirmed from the answers given. LACORS / BS 5839-6 ' +
+      'specify detection per dwelling on the basis of fire risk assessment.',
+    regulatory_refs: ['LACORS §22', 'BS 5839-6'],
+    confidence: 'unknown',
   },
 
   // =========================================================================

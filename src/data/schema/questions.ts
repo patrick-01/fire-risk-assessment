@@ -1907,46 +1907,130 @@ export const QUESTIONS: Question[] = [
   },
 
   // =========================================================================
-  // Detection and alarms (§13) — separated by scope.
-  // Within-flat detection (scope 'both') is distinguished from common-parts
-  // detection (scope 'common'). Within-flat interlinking (E6a) is distinct
-  // from between-flat / common-parts interlinking (E6b), which is only asked
-  // where common parts exist — never as a blanket question.
+  // Detection and alarms (§13) — assessed per scope, NOT as one global system.
+  // Within-flat detection is captured separately for the ground-floor flat
+  // (E1g/E3g/E6g) and the upper flat (E1u/E3u/E6u); common-parts detection (E4)
+  // and the common<->flat / cross-flat interlinking (E5, E6b) are only asked
+  // where common parts exist. LACORS Case Study D10 expects a mixed system:
+  // Grade D in the common parts interlinked with a heat detector in each flat's
+  // lobby, plus stand-alone Grade D detection within each flat.
   // =========================================================================
   {
-    id: 'E1',
+    id: 'E1g',
     section: 'detection',
     section_position: 1,
     type: 'single-choice',
-    text: 'What type of fire alarms are fitted within the flats?',
+    text: 'Ground-floor flat — what smoke alarm is fitted in the hallway / lobby?',
     help_text:
-      'Grade D1 — mains-wired with a sealed long-life lithium battery backup (no battery ' +
-      'replacement needed; typically a 10-year cell). Grade D2 — mains-wired with a ' +
-      'replaceable battery backup (requires periodic battery replacement). ' +
-      'Grade D1 is preferable as it removes dependency on battery maintenance. ' +
-      'Grade F — battery-only, no mains connection. Both D1 and D2 meet the basic ' +
-      'Grade D standard; Grade F does not.',
+      'Grade D = mains-wired with battery backup (D1 sealed long-life cell, D2 replaceable). ' +
+      'Battery-only = Grade F. Each rented flat must have at least a working smoke alarm on the ' +
+      'storey (Smoke and Carbon Monoxide Alarm Regulations); LACORS Case Study D10 expects Grade D.',
     options: [
-      {
-        value: 'd1',
-        label: 'Grade D1 — mains-wired with sealed long-life (lithium) battery backup',
-      },
-      {
-        value: 'd2',
-        label: 'Grade D2 — mains-wired with replaceable battery backup',
-      },
-      { value: 'battery_only', label: 'Battery-only (Grade F) — no mains wiring' },
-      { value: 'mixed', label: 'Mixed — some mains-wired, some battery-only' },
-      { value: 'none', label: 'No alarms at all' },
-      { value: 'not_sure', label: 'Not sure — alarm type not identified' },
+      { value: 'none', label: 'No smoke alarm in the hallway/lobby' },
+      { value: 'battery_only', label: 'Battery-only (Grade F)' },
+      { value: 'd1', label: 'Mains Grade D1 — sealed long-life battery backup' },
+      { value: 'd2', label: 'Mains Grade D2 — replaceable battery backup' },
+      { value: 'unknown', label: 'Unknown' },
     ],
     required: true,
-    scope: 'both',
+    scope: 'ground',
+  },
+  {
+    id: 'E3g',
+    section: 'detection',
+    section_position: 2,
+    type: 'single-choice',
+    text: 'Ground-floor flat — is there a heat detector in the kitchen?',
+    help_text:
+      'A heat detector (not a smoke alarm) is recommended in the kitchen for early warning ' +
+      'without nuisance alarms from cooking. LACORS LD2 / Case Study D10 includes kitchen detection.',
+    options: [
+      { value: 'none', label: 'No heat detector in the kitchen' },
+      { value: 'battery_only', label: 'Battery-only (Grade F)' },
+      { value: 'd1', label: 'Mains Grade D1' },
+      { value: 'd2', label: 'Mains Grade D2' },
+      { value: 'unknown', label: 'Unknown' },
+    ],
+    required: true,
+    scope: 'ground',
+  },
+  {
+    id: 'E6g',
+    section: 'detection',
+    section_position: 3,
+    type: 'single-choice',
+    text: 'Ground-floor flat — are the alarms within the flat interlinked with each other?',
+    help_text:
+      'Within-flat interlinking means a smoke alarm sounding in one room triggers the others in ' +
+      'the same flat. Where a flat has more than one alarm, LACORS expects them to be interlinked.',
+    options: [
+      { value: 'yes', label: 'Yes — alarms within the flat sound together' },
+      { value: 'no', label: 'No — alarms are independent' },
+      { value: 'unknown', label: 'Unknown / not verified' },
+    ],
+    required: true,
+    scope: 'ground',
+  },
+  {
+    id: 'E1u',
+    section: 'detection',
+    section_position: 4,
+    type: 'single-choice',
+    text: 'Upper flat — what smoke alarm is fitted in the hallway / lobby?',
+    help_text:
+      'Grade D = mains-wired with battery backup (D1 sealed long-life cell, D2 replaceable). ' +
+      'Battery-only = Grade F. Each rented flat must have at least a working smoke alarm on the ' +
+      'storey (Smoke and Carbon Monoxide Alarm Regulations); LACORS Case Study D10 expects Grade D.',
+    options: [
+      { value: 'none', label: 'No smoke alarm in the hallway/lobby' },
+      { value: 'battery_only', label: 'Battery-only (Grade F)' },
+      { value: 'd1', label: 'Mains Grade D1 — sealed long-life battery backup' },
+      { value: 'd2', label: 'Mains Grade D2 — replaceable battery backup' },
+      { value: 'unknown', label: 'Unknown' },
+    ],
+    required: true,
+    scope: 'upper',
+  },
+  {
+    id: 'E3u',
+    section: 'detection',
+    section_position: 5,
+    type: 'single-choice',
+    text: 'Upper flat — is there a heat detector in the kitchen?',
+    help_text:
+      'A heat detector (not a smoke alarm) is recommended in the kitchen for early warning ' +
+      'without nuisance alarms from cooking. LACORS LD2 / Case Study D10 includes kitchen detection.',
+    options: [
+      { value: 'none', label: 'No heat detector in the kitchen' },
+      { value: 'battery_only', label: 'Battery-only (Grade F)' },
+      { value: 'd1', label: 'Mains Grade D1' },
+      { value: 'd2', label: 'Mains Grade D2' },
+      { value: 'unknown', label: 'Unknown' },
+    ],
+    required: true,
+    scope: 'upper',
+  },
+  {
+    id: 'E6u',
+    section: 'detection',
+    section_position: 6,
+    type: 'single-choice',
+    text: 'Upper flat — are the alarms within the flat interlinked with each other?',
+    help_text:
+      'Within-flat interlinking means a smoke alarm sounding in one room triggers the others in ' +
+      'the same flat. Where a flat has more than one alarm, LACORS expects them to be interlinked.',
+    options: [
+      { value: 'yes', label: 'Yes — alarms within the flat sound together' },
+      { value: 'no', label: 'No — alarms are independent' },
+      { value: 'unknown', label: 'Unknown / not verified' },
+    ],
+    required: true,
+    scope: 'upper',
   },
   {
     id: 'E2',
     section: 'detection',
-    section_position: 2,
+    section_position: 7,
     type: 'multi-choice',
     text: 'Where are alarms currently located? Select all that apply.',
     options: [
@@ -1969,49 +2053,9 @@ export const QUESTIONS: Question[] = [
     scope: 'both',
   },
   {
-    id: 'E3',
-    section: 'detection',
-    section_position: 3,
-    type: 'single-choice',
-    text: 'Are any of the alarms heat detectors (as opposed to smoke detectors)?',
-    options: [
-      { value: 'all_smoke', label: 'All are smoke detectors' },
-      { value: 'mixed', label: 'Mix of smoke and heat detectors' },
-      { value: 'all_heat', label: 'All are heat detectors' },
-      { value: 'not_sure', label: 'Not sure' },
-    ],
-    required: true,
-    scope: 'both',
-  },
-  {
-    id: 'E6a',
-    section: 'detection',
-    section_position: 4,
-    type: 'single-choice',
-    text:
-      'Within each flat, are the alarms interlinked so that if one alarm sounds, all ' +
-      'others in the same flat sound?',
-    help_text:
-      'Within-flat interlinking means that a smoke alarm in a bedroom will trigger the ' +
-      'kitchen heat detector and living room alarm at the same time, giving all occupants ' +
-      'of that flat the earliest possible warning. This can be verified by pressing the ' +
-      'test button on one alarm and confirming the others sound. ' +
-      'Note: testing may require two people — one to press the button, one to confirm ' +
-      'alarms sound in other rooms.',
-    options: [
-      { value: 'yes', label: 'Yes — all alarms within each flat sound together' },
-      { value: 'no', label: 'No — alarms in each flat are independent' },
-      { value: 'partial', label: 'Partially interlinked' },
-      { value: 'not_yet_verified', label: 'Not yet verified — testing not carried out' },
-      { value: 'not_sure', label: 'Not sure' },
-    ],
-    required: true,
-    scope: 'both',
-  },
-  {
     id: 'E7',
     section: 'detection',
-    section_position: 5,
+    section_position: 8,
     type: 'single-choice',
     text: 'When were the fire alarms last tested?',
     options: [
@@ -2027,7 +2071,7 @@ export const QUESTIONS: Question[] = [
   {
     id: 'E4',
     section: 'detection',
-    section_position: 6,
+    section_position: 9,
     type: 'single-choice',
     text: 'Is there a mains-wired alarm in the shared entrance hall or common escape route?',
     show_when: [{ when_question: 'B1', has_value: 'communal' }],
@@ -2043,7 +2087,7 @@ export const QUESTIONS: Question[] = [
   {
     id: 'E5',
     section: 'detection',
-    section_position: 7,
+    section_position: 10,
     type: 'single-choice',
     text:
       'Is there a heat detector in each flat\'s entrance lobby, interlinked with the ' +
@@ -2061,7 +2105,7 @@ export const QUESTIONS: Question[] = [
   {
     id: 'E6b',
     section: 'detection',
-    section_position: 8,
+    section_position: 11,
     type: 'single-choice',
     text:
       'Are the alarms in each flat interlinked with the other flat, or with an alarm in ' +

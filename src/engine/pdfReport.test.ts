@@ -40,7 +40,7 @@ function answers(): AnswerMap {
     F6a: a('yes'),
     D1: a('hardboard'),
     D10: a('timber_panelling'),
-    E1: a('none'),
+    E1g: a('none'), E1u: a('none'),
     G4a: a('yes'),
     G4b: a('no'),
   }

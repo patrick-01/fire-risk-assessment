@@ -253,6 +253,26 @@ export interface StairCompartmentationSummary {
 }
 
 // ---------------------------------------------------------------------------
+// Fire detection strategy (derived — per-scope model, LACORS §22 / Case Study D10)
+// ---------------------------------------------------------------------------
+
+/**
+ * Per-scope view of detection. Each flat is assessed separately, so a mixed
+ * provision (e.g. mains-interlinked upstairs, battery-only downstairs) is
+ * reported as such — never collapsed to one building-wide grade. Cross-flat
+ * interlinking is NOT a blanket requirement (D10 keeps flats stand-alone); it
+ * is reported for information.
+ */
+export interface DetectionStrategySummary {
+  common_parts: 'mains' | 'battery' | 'none' | 'not_applicable' | 'unknown'
+  ground_flat: 'mains' | 'battery' | 'none' | 'unknown'
+  upper_flat: 'mains' | 'battery' | 'none' | 'unknown'
+  within_flat_interlink: 'both' | 'partial' | 'neither' | 'unknown'
+  cross_or_common_interlink: 'yes' | 'partial' | 'no' | 'not_applicable' | 'unknown'
+  mixed_provision: boolean
+}
+
+// ---------------------------------------------------------------------------
 // Legal framework (§7)
 // ---------------------------------------------------------------------------
 
