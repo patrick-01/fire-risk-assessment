@@ -26,6 +26,7 @@
 import type { Assessment, AssessmentIndexEntry } from '../state/AppState'
 import { SCHEMA_VERSION } from '../state/AppState'
 import { getOutOfScopeReason } from '../engine/navigator'
+import { withReportMetadata } from '../state/reportMetadata'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -95,7 +96,7 @@ export function loadAssessment(id: string): Assessment | null {
   try {
     const raw = localStorage.getItem(ASSESSMENT_KEY_PREFIX + id)
     if (!raw) return null
-    return JSON.parse(raw) as Assessment
+    return withReportMetadata(JSON.parse(raw) as Assessment)
   } catch {
     console.warn(`[storage] Failed to parse assessment ${id}.`)
     return null
@@ -109,8 +110,9 @@ export function loadAssessment(id: string): Assessment | null {
  */
 export function saveAssessment(assessment: Assessment): boolean {
   if (!hasConsent()) return false
+  const assessmentToSave = withReportMetadata(assessment)
   const index = loadIndex()
-  const existingIdx = index.findIndex((e) => e.assessment_id === assessment.assessment_id)
+  const existingIdx = index.findIndex((e) => e.assessment_id === assessmentToSave.assessment_id)
 
   if (existingIdx === -1 && index.length >= MAX_ASSESSMENTS) {
     console.warn('[storage] Maximum assessment limit reached.')
@@ -119,18 +121,18 @@ export function saveAssessment(assessment: Assessment): boolean {
 
   // Write the full assessment object.
   localStorage.setItem(
-    ASSESSMENT_KEY_PREFIX + assessment.assessment_id,
-    JSON.stringify(assessment)
+    ASSESSMENT_KEY_PREFIX + assessmentToSave.assessment_id,
+    JSON.stringify(assessmentToSave)
   )
 
   // Update or insert the index entry.
   const indexEntry: AssessmentIndexEntry = {
-    assessment_id: assessment.assessment_id,
-    address_display: formatAddressDisplay(assessment),
-    last_edited_at: assessment.last_edited_at,
-    completion_status: deriveCompletionStatus(assessment),
-    rules_version: assessment.rules_version,
-    schema_version: assessment.schema_version,
+    assessment_id: assessmentToSave.assessment_id,
+    address_display: formatAddressDisplay(assessmentToSave),
+    last_edited_at: assessmentToSave.last_edited_at,
+    completion_status: deriveCompletionStatus(assessmentToSave),
+    rules_version: assessmentToSave.rules_version,
+    schema_version: assessmentToSave.schema_version,
   }
 
   if (existingIdx === -1) {
@@ -196,7 +198,7 @@ export function isStorageNearlyFull(): boolean {
  * Callers that want a file download should use downloadAssessmentJson().
  */
 export function exportAssessmentJson(assessment: Assessment): string {
-  return JSON.stringify(assessment, null, 2)
+  return JSON.stringify(withReportMetadata(assessment), null, 2)
 }
 
 /**
@@ -312,10 +314,10 @@ export function importAssessmentJson(json: string): Assessment {
 
   // --- Step 4: assign a new assessment_id ---
   const assessment = parsed as Assessment
-  return {
+  return withReportMetadata({
     ...assessment,
     assessment_id: generateUUID(),
-  }
+  }, 'imported_json')
 }
 
 // ---------------------------------------------------------------------------
@@ -351,7 +353,7 @@ export function isShareLinkSupported(): boolean {
  * assessment is too large for a URL and should be exported as a file instead.
  */
 export async function encodeAssessmentForUrl(assessment: Assessment): Promise<string> {
-  const json = JSON.stringify(assessment)
+  const json = JSON.stringify(withReportMetadata(assessment))
   const compressed = await deflate(json)
   const encoded = toBase64Url(compressed)
 
@@ -436,7 +438,7 @@ export async function decodeAssessmentFromUrlWithError(encoded: string): Promise
     }
 
     const assessment = parsed as Assessment
-    return { assessment: { ...assessment, assessment_id: generateUUID() }, error: null }
+    return { assessment: withReportMetadata({ ...assessment, assessment_id: generateUUID() }), error: null }
   } catch {
     return {
       assessment: null,

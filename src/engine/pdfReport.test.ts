@@ -65,8 +65,18 @@ describe('generateReportPdf', () => {
 
   it('is loadable, titled, and paginates the 19-section report onto multiple pages', async () => {
     const loaded = await PDFDocument.load(await generateReportPdf(buildReport(answers())))
-    expect(loaded.getTitle()).toBe('Fire Safety Assessment Report')
+    expect(loaded.getTitle()).toBe('Fire Safety Inspection Report')
     expect(loaded.getPageCount()).toBeGreaterThanOrEqual(2)
+  })
+
+  it('uses professional inspection metadata and excludes app control labels from document metadata', async () => {
+    const loaded = await PDFDocument.load(await generateReportPdf(buildReport(answers())))
+    const metadata = [loaded.getTitle(), loaded.getCreator(), loaded.getProducer()].join('\n')
+
+    expect(metadata).toContain('Fire Safety Inspection Report')
+    expect(metadata).not.toMatch(/Fire Safety Assessment Report/)
+    expect(metadata).not.toMatch(/Edit answers|Export JSON|Download PDF|Copy share link|localhost/i)
+    expect(metadata).not.toMatch(/guidance only|self-assessment|formal fire risk assessment/i)
   })
 
   it('does not throw on report text containing em dashes, section signs and bullets', async () => {

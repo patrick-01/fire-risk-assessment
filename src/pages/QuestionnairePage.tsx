@@ -212,6 +212,10 @@ export default function QuestionnairePage() {
         Saved
       </p>
 
+      <p className="questionnaire-reminder">
+        Answer for the property as it exists today, not planned changes.
+      </p>
+
       {/* Invalidation confirmation */}
       {pendingConfirm && (
         <div className="confirmation-banner" role="alertdialog" aria-modal="false">

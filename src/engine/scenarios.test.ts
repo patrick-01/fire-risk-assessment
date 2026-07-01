@@ -51,6 +51,12 @@ function findFactor(factors: RiskFactor[], id: string): RiskFactor | undefined {
   return factors.find((f) => f.id === id)
 }
 
+function section(report: ReturnType<typeof evaluate>['report'], title: string) {
+  const found = report.sections.find((s) => s.title === title)
+  if (!found) throw new Error(`Missing report section: ${title}`)
+  return found
+}
+
 // ---------------------------------------------------------------------------
 // Scenario A — Purpose-built two-flat building, shared entrance (§20.A / §25.1)
 // ---------------------------------------------------------------------------
@@ -81,7 +87,7 @@ describe('Scenario A — purpose-built, shared entrance', () => {
     expect(closerRemedy?.legal_status).toBe('risk_based_recommendation')
     expect(closerRemedy?.priority).toBe('P2_high')
 
-    const section16 = report.sections.find((s) => s.id === 16)!
+    const section16 = section(report, 'LACORS / risk-based recommendations')
     expect(section16.body).toContain(`Recommended: ${closerRemedy!.text}`)
   })
 
@@ -121,7 +127,7 @@ describe('Scenario B — purpose-built, separate entrances', () => {
     expect(advisory).toBeDefined()
     expect(advisory?.legal_status).toBe('advisory_good_practice')
 
-    const section16 = report.sections.find((s) => s.id === 16)!
+    const section16 = section(report, 'LACORS / risk-based recommendations')
     expect(section16.body).toContain(`Advisory: ${advisory!.text}`)
   })
 })
@@ -161,7 +167,7 @@ describe('Scenario C — converted, shared entrance', () => {
     expect(remedy).toBeDefined()
     expect(remedy?.priority).toBe('P1_urgent')
 
-    const section15 = report.sections.find((s) => s.id === 15)!
+    const section15 = section(report, 'Legal requirements')
     expect(section15.body).toContain(`Required: ${remedy!.text}`)
   })
 })
@@ -260,7 +266,7 @@ describe('Scenario F — unknown stair compartmentation', () => {
     expect(remedy).toBeDefined()
     expect(remedy?.legal_status).toBe('further_investigation_required')
 
-    const section14 = report.sections.find((s) => s.id === 14)!
+    const section14 = section(report, 'Unknown risks / further investigation')
     expect(section14.body).toContain(`Further investigation required: ${remedy!.text}`)
   })
 })
@@ -286,7 +292,7 @@ describe('Scenario G — hollow-core doors onto a shared route', () => {
     expect(remedy?.priority).toBe('P2_high')
     expect(remedy?.risk_basis.length).toBeGreaterThan(0)
 
-    const section12 = report.sections.find((s) => s.id === 12)!
+    const section12 = section(report, 'Known risks')
     expect(section12.body).toMatch(/hollow-core/i)
   })
 })
@@ -303,7 +309,7 @@ describe('Scenario H — CO appliance present, no CO alarm', () => {
     expect(remedy?.priority).toBe('P1_urgent')
     expect(remedy?.legal_status).toBe('legal_requirement')
 
-    const section15 = report.sections.find((s) => s.id === 15)!
+    const section15 = section(report, 'Legal requirements')
     expect(section15.body).toContain(`Required: ${remedy!.text}`)
   })
 })

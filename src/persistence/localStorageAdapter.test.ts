@@ -54,6 +54,8 @@ function makeAssessment(overrides: Partial<Assessment> = {}): Assessment {
       hmo: 'unresolved',
       section_257: false,
       case_study_d10: 'unknown',
+      case_study_d11: 'unknown',
+      effective_storeys: 'unknown',
       general_lacors_risk_guidance: 'applicable',
       fso_common_parts: 'unknown',
       entrance_configuration: 'unknown',
@@ -84,6 +86,30 @@ describe('exportAssessmentJson', () => {
     expect(parsed.assessment_id).toBe('original-id-abc')
     expect(parsed.answers).toBeDefined()
     expect(parsed.classification).toBeDefined()
+    expect(parsed.report_metadata).toBeDefined()
+  })
+
+  it('adds default inspection metadata to schema-compatible exports that do not yet have it', () => {
+    const json = exportAssessmentJson(makeAssessment())
+    const parsed = JSON.parse(json) as {
+      report_metadata?: {
+        inspectionType?: string
+        source?: string
+        reviewCycleMonths?: number
+        nextReviewDue?: string
+        reportVersion?: string
+        rulesVersion?: string
+        appVersion?: string
+      }
+    }
+
+    expect(parsed.report_metadata?.inspectionType).toBe('initial')
+    expect(parsed.report_metadata?.source).toBe('app')
+    expect(parsed.report_metadata?.reviewCycleMonths).toBe(12)
+    expect(parsed.report_metadata?.nextReviewDue).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    expect(parsed.report_metadata?.reportVersion).toBeDefined()
+    expect(parsed.report_metadata?.rulesVersion).toBeDefined()
+    expect(parsed.report_metadata?.appVersion).toBeDefined()
   })
 
   it('is pretty-printed (contains newlines)', () => {
@@ -122,6 +148,15 @@ describe('importAssessmentJson — valid input', () => {
     expect(result.rules_version).toBe(assessment.rules_version)
     expect(result.property.address_line_1).toBe('1 Test Street')
     expect(result.answers['A1']?.value).toBe('converted')
+  })
+
+  it('defaults imported assessment metadata and marks the source as imported_json', () => {
+    const result = importAssessmentJson(JSON.stringify(makeAssessment()))
+
+    expect(result.report_metadata?.inspectionType).toBe('initial')
+    expect(result.report_metadata?.source).toBe('imported_json')
+    expect(result.report_metadata?.reviewCycleMonths).toBe(12)
+    expect(result.report_metadata?.nextReviewDue).toMatch(/^\d{4}-\d{2}-\d{2}$/)
   })
 
   it('generates a unique ID each time it is called', () => {

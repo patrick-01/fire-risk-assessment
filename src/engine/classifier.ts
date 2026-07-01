@@ -78,6 +78,16 @@ export function deriveInnerRoomPresent(answers: AnswerMap): 'yes' | 'no' | 'unkn
   return 'unknown'
 }
 
+export function deriveGroundFlatInnerRoomPresent(answers: AnswerMap): 'yes' | 'no' | 'unknown' {
+  const GFC10 = answers['GF_C10']?.value
+  const GFC13 = answers['GF_C13']?.value
+  if (GFC10 === 'yes' || GFC13 === 'no') return 'yes'
+  if (GFC10 === 'no' && GFC13 !== undefined && GFC13 !== 'not_sure') return 'no'
+  if (GFC10 === 'not_sure' || GFC13 === 'not_sure') return 'unknown'
+  if (GFC10 === 'no') return 'no'
+  return 'unknown'
+}
+
 // ---------------------------------------------------------------------------
 // Escape window assessment
 // ---------------------------------------------------------------------------
@@ -203,6 +213,122 @@ export function assessEscapeWindows(answers: AnswerMap): EscapeWindowAssessment 
   )
 
   return { bedroom_1: bedroom1, bedroom_2: bedroom2, living_room: livingRoom }
+}
+
+export function assessGroundFlatEscapeWindows(answers: AnswerMap): EscapeWindowAssessment {
+  const B1 = answers['B1']?.value
+  const B3 = answers['B3']?.value
+
+  if (B1 === 'separate' || B3 === 'yes') {
+    return { bedroom_1: 'not-applicable', bedroom_2: 'not-applicable', living_room: 'not-applicable' }
+  }
+
+  const hasBedrooms = answers['GF_C0']?.value
+  if (hasBedrooms === 'no') {
+    return { bedroom_1: 'not-applicable', bedroom_2: 'not-applicable', living_room: 'not-applicable' }
+  }
+
+  const bedroom1 = assessSingleWindow(
+    answers,
+    {
+      has_window: 'GF_C1',
+      no_key: 'GF_C2',
+      sill_ok: 'GF_C3',
+      size_ok: 'GF_C4',
+      no_obstruction: 'GF_C5',
+    },
+    true,
+    true,
+    'GF_C1_type'
+  )
+
+  const secondBedroom = answers['GF_C6']?.value
+  let bedroom2: EscapeWindowStatus = 'not-applicable'
+  if (secondBedroom === 'yes') {
+    bedroom2 = assessSingleWindow(
+      answers,
+      {
+        has_window: 'GF_C7',
+        no_key: 'GF_C9a',
+        sill_ok: 'GF_C9b',
+        size_ok: 'GF_C9c',
+        no_obstruction: 'GF_C9d',
+      },
+      true,
+      true
+    )
+  } else if (secondBedroom === undefined || secondBedroom === null) {
+    bedroom2 = 'unknown'
+  }
+
+  return { bedroom_1: bedroom1, bedroom_2: bedroom2, living_room: 'not-applicable' }
+}
+
+export interface FlatEscapeStrategySummary {
+  route:
+    | 'direct_or_rear_exit'
+    | 'protected_route'
+    | 'window_dependent'
+    | 'external_escape'
+    | 'unverified_external_escape'
+    | 'unknown'
+  bedroom_1_window: EscapeWindowStatus
+  bedroom_2_window: EscapeWindowStatus
+  inner_room: 'yes' | 'no' | 'unknown'
+}
+
+export interface EscapeStrategySummary {
+  ground_flat: FlatEscapeStrategySummary
+  upper_flat: FlatEscapeStrategySummary
+  benchmark_case_study: 'D10' | 'D11' | 'not_applicable' | 'unknown'
+}
+
+export function deriveEscapeStrategy(
+  answers: AnswerMap,
+  classification: BuildingClassification
+): EscapeStrategySummary {
+  const groundWindows = assessGroundFlatEscapeWindows(answers)
+  const upperWindows = assessEscapeWindows(answers)
+  const upperExternal = deriveUpperExternalEscapeViable(answers, answers['B2']?.value)
+
+  const groundRoute: FlatEscapeStrategySummary['route'] =
+    answers['B1']?.value === 'separate' || answers['B3']?.value === 'yes'
+      ? 'direct_or_rear_exit'
+      : answers['B3']?.value === 'no'
+        ? 'window_dependent'
+        : 'unknown'
+
+  const upperRoute: FlatEscapeStrategySummary['route'] =
+    upperExternal === 'yes'
+      ? 'external_escape'
+      : upperExternal === 'unknown' && answers['B2']?.value !== undefined && answers['B2']?.value !== 'no'
+        ? 'unverified_external_escape'
+        : classification.entrance_configuration === 'separate_private_entrances'
+          ? 'direct_or_rear_exit'
+          : 'protected_route'
+
+  return {
+    ground_flat: {
+      route: groundRoute,
+      bedroom_1_window: groundWindows.bedroom_1,
+      bedroom_2_window: groundWindows.bedroom_2,
+      inner_room: deriveGroundFlatInnerRoomPresent(answers),
+    },
+    upper_flat: {
+      route: upperRoute,
+      bedroom_1_window: upperWindows.bedroom_1,
+      bedroom_2_window: upperWindows.bedroom_2,
+      inner_room: deriveInnerRoomPresent(answers),
+    },
+    benchmark_case_study:
+      classification.case_study_d11 === 'applicable'
+        ? 'D11'
+        : classification.case_study_d10 === 'applicable'
+          ? 'D10'
+          : classification.case_study_d10 === 'not_applicable'
+            ? 'not_applicable'
+            : 'unknown',
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -469,10 +595,17 @@ export function classify(answers: AnswerMap): BuildingClassification {
   const A4 = answers['A4']?.value
   const A5 = answers['A5']?.value
   const B1 = answers['B1']?.value
+  const B6 = answers['B6']?.value
 
   const origin = deriveBuildingOrigin(A1)
   const entrance_configuration = deriveEntranceConfiguration(B1)
   const fso_common_parts = deriveFsoCommonParts(B1)
+  const effective_storeys: BuildingClassification['effective_storeys'] =
+    B6 === 'two_level_maisonette'
+      ? 'three_storey'
+      : B6 === 'single_storey'
+        ? 'two_storey'
+        : 'unknown'
 
   // Shared fields for every outcome. General LACORS risk guidance is always
   // applicable across the portfolio (§2.1) — it is never switched off merely
@@ -481,6 +614,7 @@ export function classify(answers: AnswerMap): BuildingClassification {
     origin,
     entrance_configuration,
     fso_common_parts,
+    effective_storeys,
     general_lacors_risk_guidance: 'applicable' as const,
   }
 
@@ -490,11 +624,19 @@ export function classify(answers: AnswerMap): BuildingClassification {
     case_study_d10: BuildingClassification['case_study_d10'],
     unresolved_reasons: string[]
   ): BuildingClassification {
+    const case_study_d11: BuildingClassification['case_study_d11'] =
+      case_study_d10 === 'applicable' && effective_storeys === 'three_storey'
+        ? 'applicable'
+        : case_study_d10 === 'unknown' || effective_storeys === 'unknown'
+          ? 'unknown'
+          : 'not_applicable'
+
     return {
       ...base,
       hmo,
       section_257: hmo === 'section_257_hmo',
       case_study_d10,
+      case_study_d11,
       confidence,
       unresolved_reasons,
     }

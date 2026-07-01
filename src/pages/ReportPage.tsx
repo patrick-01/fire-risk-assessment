@@ -32,6 +32,15 @@ import { generateReportPdf } from '../engine/pdfReport'
 import { QUESTION_MAP } from '../data/schema/questions'
 import { shouldShowQuestion } from '../engine/navigator'
 import {
+  INSPECTION_PURPOSE_TEXT,
+  INSPECTION_TYPE_LABELS,
+  REMEDIATION_STATUS_LABELS,
+  REPORT_TITLE,
+  REVIEW_FREQUENCY_TEXT,
+  formatPropertyAddress,
+  normalizeReportMetadata,
+} from '../state/reportMetadata'
+import {
   downloadAssessmentJson,
   downloadPdf,
   encodeAssessmentForUrl,
@@ -47,7 +56,10 @@ import type {
   RemedyPriority,
   RemedyScope,
   RemedySummary,
+  RemediationStatus,
   ResolvedRemedy,
+  ReportMetadata,
+  PropertyIdentity,
   RiskAssessment,
   RiskDomain,
   RiskKnowledge,
@@ -138,6 +150,14 @@ const SCOPE_LABELS: Record<RemedyScope, string> = {
   upper_flat: 'Upper-floor flat',
 }
 
+const REMEDIATION_STATUS_OPTIONS: RemediationStatus[] = [
+  'outstanding',
+  'in_progress',
+  'complete',
+  'not_applicable',
+  'superseded',
+]
+
 const LEGAL_FRAMEWORK_ROWS: Array<{ key: keyof LegalFrameworkAssessment; name: string }> = [
   { key: 'electrical_safety', name: 'Electrical Safety Standards (Private Rented Sector) Regulations 2020' },
   { key: 'hhsrs_fire_hazard', name: 'Housing Health & Safety Rating System — fire hazard (Housing Act 2004)' },
@@ -195,10 +215,9 @@ export default function ReportPage() {
   const assessment = state.activeAssessment
   const { classification, legalFramework, risk, remedies, completeness, confirmed, total } = model
   const property = assessment.property
-  const addressLine = [property.address_line_1, property.address_line_2, property.town, property.postcode_normalised]
-    .filter(Boolean)
-    .join(', ')
+  const addressLine = formatPropertyAddress(property)
   const generatedAt = assessment.report_generated_at ?? new Date().toISOString()
+  const reportMetadata = normalizeReportMetadata(assessment)
   const lowCompleteness = completeness < 70
   const noRemedies =
     remedies.legal_requirements.length === 0 &&
@@ -209,22 +228,26 @@ export default function ReportPage() {
   async function handleDownloadPdf() {
     setPdfStatus('working')
     try {
-      const reportV2 = generateReportV2(property, assessment.answers, classification, legalFramework, risk, remedies)
+      const reportV2 = generateReportV2(property, assessment.answers, classification, legalFramework, risk, remedies, reportMetadata)
       const bytes = await generateReportPdf(reportV2)
       const postcode = (property.postcode_normalised || property.postcode).replace(/\s+/g, '').toLowerCase()
       const date = new Date(assessment.report_generated_at ?? Date.now()).toISOString().slice(0, 10)
-      downloadPdf(bytes, `fire-report-${postcode || 'unknown'}-${date}.pdf`)
+      downloadPdf(bytes, `fire-safety-inspection-report-${postcode || 'unknown'}-${date}.pdf`)
       setPdfStatus('idle')
     } catch {
       setPdfStatus('error')
     }
   }
 
+  function updateReportMetadata(patch: Partial<ReportMetadata>) {
+    dispatch({ type: 'UPDATE_REPORT_METADATA', payload: patch })
+  }
+
   return (
     <main className="page page--report">
       {/* Property header */}
       <header className="report-header">
-        <h1>Fire Safety Assessment Report</h1>
+        <h1>{REPORT_TITLE}</h1>
         <p className="report-meta">{addressLine}{property.flat_ref ? ` — ${property.flat_ref}` : ''}</p>
         <p className="report-meta report-meta--small">
           Generated: {new Date(generatedAt).toLocaleDateString('en-GB', { dateStyle: 'long' })}
@@ -232,10 +255,17 @@ export default function ReportPage() {
           {' · '}App: {assessment.app_version}
         </p>
         <p className="report-meta report-meta--small report-disclaimer-inline">
-          This report is guidance only. It does not constitute a formal fire risk assessment or a
-          legally binding compliance certificate. See disclaimer below.
+          Landlord / responsible person inspection record. It is not a statutory compliance certificate
+          or confirmation from the local authority.
         </p>
       </header>
+
+      <InspectionDetailsPanel
+        metadata={reportMetadata}
+        property={property}
+        generatedAt={generatedAt}
+        onUpdate={updateReportMetadata}
+      />
 
       {/* Overall risk */}
       <RiskOverview risk={risk} />
@@ -309,19 +339,16 @@ export default function ReportPage() {
 
       {/* Remediation schedule */}
       {remedies.remediation_schedule.length > 0 && (
-        <RemediationSchedule remedies={remedies.remediation_schedule} />
+        <RemediationSchedule remedies={remedies.remediation_schedule} metadata={reportMetadata} onUpdate={updateReportMetadata} />
       )}
 
-      {/* Disclaimer */}
+      <InspectionHistory metadata={reportMetadata} risk={risk} remedies={remedies} />
+
+      <AssessorDeclaration metadata={reportMetadata} onUpdate={updateReportMetadata} />
+
       <section className="report-section report-section--disclaimer">
-        <h2>Disclaimer</h2>
-        <p>
-          This report is produced by a self-assessment tool and does not constitute a formal fire
-          risk assessment, a legally binding compliance certificate, or advice from Richmond upon
-          Thames Council. All recommendations should be read as general guidance grounded in LACORS
-          principles, except where explicitly marked “Required”. A competent person should verify all
-          findings and specify any works before they are carried out.
-        </p>
+        <h2>Report Purpose and Limitations</h2>
+        <p>{INSPECTION_PURPOSE_TEXT}</p>
       </section>
 
       {/* Actions */}
@@ -408,6 +435,94 @@ const RISK_DOMAIN_ORDER: RiskDomain[] = [
   'common_parts',
   'management',
 ]
+
+function InspectionDetailsPanel({
+  metadata,
+  property,
+  generatedAt,
+  onUpdate,
+}: {
+  metadata: ReportMetadata
+  property: PropertyIdentity
+  generatedAt: string
+  onUpdate: (patch: Partial<ReportMetadata>) => void
+}) {
+  function update<K extends keyof ReportMetadata>(field: K, value: ReportMetadata[K]) {
+    onUpdate({ [field]: value } as Partial<ReportMetadata>)
+  }
+
+  return (
+    <section className="report-section report-section--inspection-details">
+      <h2>Inspection Details</h2>
+      <dl className="framework-summary report-details-summary">
+        <dt>Property address</dt>
+        <dd>{formatPropertyAddress(property)}</dd>
+        <dt>Unit / building reference</dt>
+        <dd>{property.flat_ref || 'Not recorded'}</dd>
+        <dt>Report generated date</dt>
+        <dd>{new Date(generatedAt).toLocaleDateString('en-GB', { dateStyle: 'long' })}</dd>
+        <dt>Review frequency</dt>
+        <dd>{REVIEW_FREQUENCY_TEXT}</dd>
+      </dl>
+
+      <div className="report-field-grid">
+        <label className="report-field">
+          <span>Inspection date</span>
+          <input className="text-input" type="date" value={metadata.inspectionDate} onChange={(e) => update('inspectionDate', e.target.value)} />
+        </label>
+        <label className="report-field">
+          <span>Inspection type</span>
+          <select className="text-input" value={metadata.inspectionType} onChange={(e) => update('inspectionType', e.target.value as ReportMetadata['inspectionType'])}>
+            {Object.entries(INSPECTION_TYPE_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+        </label>
+        <label className="report-field">
+          <span>Next review due</span>
+          <input className="text-input" type="date" value={metadata.nextReviewDue} onChange={(e) => update('nextReviewDue', e.target.value)} />
+        </label>
+        <label className="report-field">
+          <span>Review cycle months</span>
+          <input className="text-input" type="number" min="1" value={metadata.reviewCycleMonths} onChange={(e) => update('reviewCycleMonths', Number(e.target.value) || 12)} />
+        </label>
+        <label className="report-field">
+          <span>Assessor name</span>
+          <input className="text-input" value={metadata.assessorName} onChange={(e) => update('assessorName', e.target.value)} />
+        </label>
+        <label className="report-field">
+          <span>Assessor role</span>
+          <input className="text-input" value={metadata.assessorRole} onChange={(e) => update('assessorRole', e.target.value)} />
+        </label>
+        <label className="report-field">
+          <span>Organisation</span>
+          <input className="text-input" value={metadata.organisation} onChange={(e) => update('organisation', e.target.value)} />
+        </label>
+        <label className="report-field">
+          <span>Responsible person / landlord</span>
+          <input className="text-input" value={metadata.responsiblePerson} onChange={(e) => update('responsiblePerson', e.target.value)} />
+        </label>
+        <label className="report-field">
+          <span>Assessor email</span>
+          <input className="text-input" type="email" value={metadata.assessorEmail} onChange={(e) => update('assessorEmail', e.target.value)} />
+        </label>
+        <label className="report-field">
+          <span>Storage path</span>
+          <input className="text-input" value={metadata.storagePath ?? ''} onChange={(e) => update('storagePath', e.target.value || null)} />
+        </label>
+      </div>
+
+      <label className="report-field report-field--wide">
+        <span>Assessor competence statement</span>
+        <textarea
+          className="text-input report-textarea"
+          value={metadata.assessorCompetenceStatement}
+          onChange={(e) => update('assessorCompetenceStatement', e.target.value)}
+        />
+      </label>
+    </section>
+  )
+}
 
 function RiskOverview({ risk }: { risk: RiskAssessment }) {
   return (
@@ -578,7 +693,30 @@ function RemedyCard({ remedy }: { remedy: ResolvedRemedy }) {
   )
 }
 
-function RemediationSchedule({ remedies }: { remedies: RemedySummary['remediation_schedule'] }) {
+function RemediationSchedule({
+  remedies,
+  metadata,
+  onUpdate,
+}: {
+  remedies: RemedySummary['remediation_schedule']
+  metadata: ReportMetadata
+  onUpdate: (patch: Partial<ReportMetadata>) => void
+}) {
+  function updateTracking(ruleId: string, patch: Partial<ReportMetadata['remediationTracking'][string]>) {
+    const current = metadata.remediationTracking[ruleId] ?? {
+      status: 'outstanding' as RemediationStatus,
+      targetDate: null,
+      completedDate: null,
+      evidenceNotes: '',
+    }
+    onUpdate({
+      remediationTracking: {
+        ...metadata.remediationTracking,
+        [ruleId]: { ...current, ...patch },
+      },
+    })
+  }
+
   return (
     <section className="report-section">
       <h2>Remediation Schedule</h2>
@@ -588,16 +726,158 @@ function RemediationSchedule({ remedies }: { remedies: RemedySummary['remediatio
       </p>
       <ol className="schedule-list">
         {remedies.map((remedy) => (
-          <li key={remedy.rule_id} className="schedule-item">
-            <span className={`legal-status-badge legal-status-badge--${remedy.legal_status}`}>
-              {LEGAL_STATUS_LABELS[remedy.legal_status]}
-            </span>
-            <span className="schedule-item__priority">{PRIORITY_LABELS[remedy.priority]}</span>
-            <span className="schedule-item__title">{remedy.title}</span>
-            <span className="schedule-item__scope">{SCOPE_LABELS[remedy.applies_to]}</span>
+          <li key={remedy.rule_id} className="schedule-item schedule-item--tracking">
+            <div className="schedule-item__main">
+              <span className="schedule-item__ref">{remedy.rule_id}</span>
+              <span className={`legal-status-badge legal-status-badge--${remedy.legal_status}`}>
+                {LEGAL_STATUS_LABELS[remedy.legal_status]}
+              </span>
+              <span className="schedule-item__priority">{PRIORITY_LABELS[remedy.priority]}</span>
+              <span className="schedule-item__scope">{SCOPE_LABELS[remedy.applies_to]}</span>
+            </div>
+            <p className="schedule-item__title">{remedy.title}</p>
+            <p className="schedule-item__action">{remedy.text}</p>
+            <div className="schedule-tracking-grid">
+              <label className="report-field">
+                <span>Status</span>
+                <select
+                  className="text-input"
+                  value={metadata.remediationTracking[remedy.rule_id]?.status ?? 'outstanding'}
+                  onChange={(e) => updateTracking(remedy.rule_id, { status: e.target.value as RemediationStatus })}
+                >
+                  {REMEDIATION_STATUS_OPTIONS.map((status) => (
+                    <option key={status} value={status}>{REMEDIATION_STATUS_LABELS[status]}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="report-field">
+                <span>Target date</span>
+                <input
+                  className="text-input"
+                  type="date"
+                  value={metadata.remediationTracking[remedy.rule_id]?.targetDate ?? ''}
+                  onChange={(e) => updateTracking(remedy.rule_id, { targetDate: e.target.value || null })}
+                />
+              </label>
+              <label className="report-field">
+                <span>Completed date</span>
+                <input
+                  className="text-input"
+                  type="date"
+                  value={metadata.remediationTracking[remedy.rule_id]?.completedDate ?? ''}
+                  onChange={(e) => updateTracking(remedy.rule_id, { completedDate: e.target.value || null })}
+                />
+              </label>
+              <label className="report-field report-field--wide">
+                <span>Evidence / notes</span>
+                <textarea
+                  className="text-input report-textarea report-textarea--small"
+                  value={metadata.remediationTracking[remedy.rule_id]?.evidenceNotes ?? ''}
+                  onChange={(e) => updateTracking(remedy.rule_id, { evidenceNotes: e.target.value })}
+                />
+              </label>
+            </div>
           </li>
         ))}
       </ol>
+    </section>
+  )
+}
+
+function InspectionHistory({
+  metadata,
+  risk,
+  remedies,
+}: {
+  metadata: ReportMetadata
+  risk: RiskAssessment
+  remedies: RemedySummary
+}) {
+  const outstanding = remedies.remediation_schedule.filter((remedy) => {
+    const status = metadata.remediationTracking[remedy.rule_id]?.status ?? 'outstanding'
+    return status === 'outstanding' || status === 'in_progress'
+  })
+  const currentRow = {
+    inspectionDate: metadata.inspectionDate,
+    inspectionType: metadata.inspectionType,
+    assessor: metadata.assessorName || 'Not recorded',
+    overallRisk: risk.overall_severity,
+    keyOutstandingActions: outstanding.length === 0 ? 'None recorded' : String(outstanding.length),
+    nextReviewDue: metadata.nextReviewDue,
+  }
+  const rows = metadata.reviewHistory.length > 0 ? metadata.reviewHistory : [currentRow]
+
+  return (
+    <section className="report-section">
+      <h2>Inspection and Review History</h2>
+      <table className="risk-dimension-table report-history-table">
+        <thead>
+          <tr>
+            <th>Inspection date</th>
+            <th>Inspection type</th>
+            <th>Assessor</th>
+            <th>Overall risk</th>
+            <th>Key outstanding actions</th>
+            <th>Next review due</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, index) => (
+            <tr key={`${row.inspectionDate}-${index}`}>
+              <td>{row.inspectionDate}</td>
+              <td>{INSPECTION_TYPE_LABELS[row.inspectionType]}</td>
+              <td>{row.assessor}</td>
+              <td>{row.overallRisk === 'unknown' ? 'Unknown' : SEVERITY_LABELS[row.overallRisk]}</td>
+              <td>{row.keyOutstandingActions}</td>
+              <td>{row.nextReviewDue}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  )
+}
+
+function AssessorDeclaration({
+  metadata,
+  onUpdate,
+}: {
+  metadata: ReportMetadata
+  onUpdate: (patch: Partial<ReportMetadata>) => void
+}) {
+  function update<K extends keyof ReportMetadata>(field: K, value: ReportMetadata[K]) {
+    onUpdate({ [field]: value } as Partial<ReportMetadata>)
+  }
+
+  return (
+    <section className="report-section report-section--declaration">
+      <h2>Assessor Declaration and Signature</h2>
+      <label className="report-field report-field--wide">
+        <span>Declaration</span>
+        <textarea className="text-input report-textarea" value={metadata.declaration} onChange={(e) => update('declaration', e.target.value)} />
+      </label>
+      <div className="report-field-grid report-field-grid--signature">
+        <label className="report-field">
+          <span>Assessor name</span>
+          <input className="text-input" value={metadata.assessorName} onChange={(e) => update('assessorName', e.target.value)} />
+        </label>
+        <label className="report-field">
+          <span>Signature</span>
+          <input className="text-input signature-input" value={metadata.signature} onChange={(e) => update('signature', e.target.value)} />
+        </label>
+        <label className="report-field">
+          <span>Date signed</span>
+          <input className="text-input" type="date" value={metadata.dateSigned ?? ''} onChange={(e) => update('dateSigned', e.target.value || null)} />
+        </label>
+        <label className="report-field">
+          <span>Role / capacity</span>
+          <input className="text-input" value={metadata.assessorRole} onChange={(e) => update('assessorRole', e.target.value)} />
+        </label>
+        <label className="report-field">
+          <span>Next review due</span>
+          <input className="text-input" type="date" value={metadata.nextReviewDue} onChange={(e) => update('nextReviewDue', e.target.value)} />
+        </label>
+      </div>
     </section>
   )
 }

@@ -73,12 +73,20 @@ function reportFor(answers: AnswerMap) {
   return generateReportV2(PROPERTY, answers, classification, legalFramework, risk, remedies)
 }
 
+function section(report: ReturnType<typeof reportFor>, title: string) {
+  const found = report.sections.find((s) => s.title === title)
+  if (!found) throw new Error(`Missing report section: ${title}`)
+  return found
+}
+
 // ---------------------------------------------------------------------------
 // §17.1 — 19 sections, in order, with correct titles
 // ---------------------------------------------------------------------------
 
 const EXPECTED_TITLES = [
   'Property details',
+  'Inspection details',
+  'Assessor competence statement',
   'Assessment scope and limitations',
   'Property classification',
   'Applicable legal framework',
@@ -96,13 +104,15 @@ const EXPECTED_TITLES = [
   'LACORS / risk-based recommendations',
   'Remediation schedule',
   'Evidence and assumptions',
-  'Disclaimer',
+  'Inspection and review history',
+  'Assessor declaration and signature',
+  'Report purpose and limitations',
 ]
 
 describe('generateReportV2 — §17.1 section structure', () => {
-  it('produces all 19 sections, numbered 1-19 in order', () => {
+  it('produces all report sections, numbered in order', () => {
     const report = reportFor({ ...convertedS257(), B1: a('communal') })
-    expect(report.sections).toHaveLength(19)
+    expect(report.sections).toHaveLength(EXPECTED_TITLES.length)
     report.sections.forEach((section, index) => {
       expect(section.id).toBe(index + 1)
     })
@@ -130,6 +140,69 @@ describe('generateReportV2 — §17.1 section structure', () => {
     expect(report.risk.risk_factors).toBeInstanceOf(Array)
     expect(report.remedies.remediation_schedule).toBeInstanceOf(Array)
   })
+
+  it('uses the professional inspection report title', () => {
+    const report = reportFor({ ...convertedS257(), B1: a('communal') }) as ReturnType<typeof reportFor> & {
+      title?: string
+    }
+    expect(report.title).toBe('Fire Safety Inspection Report')
+  })
+})
+
+describe('generateReportV2 — inspection record wording and metadata', () => {
+  it('replaces the old self-assessment disclaimer with inspection-purpose wording', () => {
+    const report = reportFor({ ...convertedS257(), B1: a('communal') })
+    const fullText = report.sections.map((s) => `${s.title}\n${s.body}`).join('\n\n')
+
+    expect(fullText).toContain(
+      'This report records the findings of a fire safety inspection carried out by the assessor'
+    )
+    expect(fullText).toContain('It is not a statutory compliance certificate or confirmation from the local authority.')
+    expect(fullText).not.toMatch(/self-assessment tool/i)
+    expect(fullText).not.toMatch(/does not constitute a formal fire risk assessment/i)
+    expect(fullText).not.toMatch(/guidance only/i)
+  })
+
+  it('renders inspection details, next review due, and editable competence statement defaults', () => {
+    const report = reportFor({ ...convertedS257(), B1: a('communal') })
+    const details = report.sections.find((s) => s.title === 'Inspection details')!
+    const competence = report.sections.find((s) => s.title === 'Assessor competence statement')!
+
+    expect(details.body).toContain('Property address: 1 Test Street, Richmond, TW9 1AA')
+    expect(details.body).toContain('Inspection type: Initial')
+    expect(details.body).toContain('Next review due:')
+    expect(details.body).toContain('Review frequency: normally 12 months')
+    expect(competence.body).toContain('The inspection was completed by the named assessor')
+  })
+
+  it('renders declaration, signature fields, and review history for the current report', () => {
+    const report = reportFor({ ...convertedS257(), B1: a('communal'), D1: a('hardboard') })
+    const history = report.sections.find((s) => s.title === 'Inspection and review history')!
+    const declaration = report.sections.find((s) => s.title === 'Assessor declaration and signature')!
+
+    expect(history.body).toContain('Inspection date | Inspection type | Assessor | Overall risk | Key outstanding actions | Next review due')
+    expect(history.body).toContain('Initial')
+    expect(declaration.body).toContain('I confirm that this report accurately records the inspection findings')
+    expect(declaration.body).toContain('Signature:')
+    expect(declaration.body).toContain('Date signed:')
+    expect(declaration.body).toContain('Role / capacity:')
+    expect(declaration.body).toContain('Next review due:')
+  })
+
+  it('adds remediation tracking fields without removing legal classification or priority', () => {
+    const report = reportFor({ ...convertedS257(), B1: a('communal'), D1: a('hardboard') })
+    const schedule = report.sections.find((s) => s.title === 'Remediation schedule')!
+
+    expect(report.remedies.remediation_schedule.length).toBeGreaterThan(0)
+    expect(schedule.body).toContain('Action reference')
+    expect(schedule.body).toContain('Status')
+    expect(schedule.body).toContain('Target date')
+    expect(schedule.body).toContain('Completed date')
+    expect(schedule.body).toContain('Evidence / notes')
+    expect(schedule.body).toContain('Legal classification')
+    expect(schedule.body).toContain(report.remedies.remediation_schedule[0].legal_status)
+    expect(schedule.body).toContain(report.remedies.remediation_schedule[0].priority)
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -139,14 +212,14 @@ describe('generateReportV2 — §17.1 section structure', () => {
 describe('generateReportV2 — sections 3-4', () => {
   it('section 3 reflects the building classification', () => {
     const report = reportFor({ ...convertedS257(), B1: a('communal') })
-    const section3 = report.sections.find((s) => s.id === 3)!
+    const section3 = section(report, 'Property classification')
     expect(section3.body).toContain('Section 257 HMO: Yes.')
     expect(section3.body).toContain('Case Study D10 stair-enclosure benchmark: applicable.')
   })
 
   it('section 4 marks always-applicable statutes as "Required" and renders lacors_guidance_use', () => {
     const report = reportFor({ ...convertedS257(), B1: a('communal') })
-    const section4 = report.sections.find((s) => s.id === 4)!
+    const section4 = section(report, 'Applicable legal framework')
     expect(section4.body).toContain('Electrical Safety Standards in the Private Rented Sector (England) Regulations 2020 — Required: applies to this property.')
     expect(section4.body).toContain('Housing Health and Safety Rating System — fire hazard (Housing Act 2004) — Required: applies to this property.')
     expect(section4.body).toMatch(/LACORS guidance is used as:/)
@@ -160,9 +233,9 @@ describe('generateReportV2 — sections 3-4', () => {
 describe('generateReportV2 — sections 12-14 risk partitioning', () => {
   it('a known risk (no smoke alarms) appears in section 12, not 13 or 14', () => {
     const report = reportFor({ ...convertedS257(), B1: a('communal'), E1g: a('none'), E1u: a('none') })
-    const known = report.sections.find((s) => s.id === 12)!
-    const potential = report.sections.find((s) => s.id === 13)!
-    const unknown = report.sections.find((s) => s.id === 14)!
+    const known = section(report, 'Known risks')
+    const potential = section(report, 'Potential risks')
+    const unknown = section(report, 'Unknown risks / further investigation')
 
     expect(known.body).toMatch(/smoke/i)
     expect(potential.body).not.toMatch(/RF-DET-NONE/)
@@ -171,13 +244,13 @@ describe('generateReportV2 — sections 12-14 risk partitioning', () => {
 
   it('an unknown risk factor (uncertain alarm type) appears in section 14, tagged "Further investigation required"', () => {
     const report = reportFor({ ...convertedS257(), B1: a('communal'), E1g: a('unknown'), E1u: a('unknown') })
-    const unknown = report.sections.find((s) => s.id === 14)!
+    const unknown = section(report, 'Unknown risks / further investigation')
     expect(unknown.body).toMatch(/Further investigation required:/)
   })
 
   it('section 14 includes RemedySummary.further_investigation items alongside unknown risk factors', () => {
     const report = reportFor({ ...convertedS257(), G4a: a('not_sure') })
-    const unknown = report.sections.find((s) => s.id === 14)!
+    const unknown = section(report, 'Unknown risks / further investigation')
     expect(report.remedies.further_investigation.length).toBeGreaterThan(0)
     for (const remedy of report.remedies.further_investigation) {
       expect(unknown.body).toContain(remedy.text)
@@ -192,7 +265,7 @@ describe('generateReportV2 — sections 12-14 risk partitioning', () => {
 describe('generateReportV2 — sections 15-17 tone and ordering', () => {
   it('section 15 only contains "Required:" remedy lines', () => {
     const report = reportFor({ ...convertedS257(), B1: a('communal'), G1: a('overdue'), E1g: a('none'), E1u: a('none') })
-    const section15 = report.sections.find((s) => s.id === 15)!
+    const section15 = section(report, 'Legal requirements')
     expect(report.remedies.legal_requirements.length).toBeGreaterThan(0)
     for (const remedy of report.remedies.legal_requirements) {
       expect(section15.body).toContain(`Required: ${remedy.text}`)
@@ -203,7 +276,7 @@ describe('generateReportV2 — sections 15-17 tone and ordering', () => {
 
   it('section 16 separates "Recommended" and "Advisory" blocks', () => {
     const report = reportFor({ ...purposeBuilt(), B1: a('separate'), F1b: a('not_fitted') })
-    const section16 = report.sections.find((s) => s.id === 16)!
+    const section16 = section(report, 'LACORS / risk-based recommendations')
 
     const recIndex = section16.body.indexOf('LACORS / risk-based recommendations:')
     const advIndex = section16.body.indexOf('Advisory / good practice (separate from the recommendations above):')
@@ -218,7 +291,7 @@ describe('generateReportV2 — sections 15-17 tone and ordering', () => {
 
   it('section 17 lists the remediation schedule in priority order', () => {
     const report = reportFor({ ...convertedS257(), B1: a('communal'), D1: a('hardboard'), E1g: a('none'), E1u: a('none') })
-    const section17 = report.sections.find((s) => s.id === 17)!
+    const section17 = section(report, 'Remediation schedule')
     const PRIORITY_ORDER = ['P1_urgent', 'P2_high', 'P3_medium', 'P4_low', 'investigate']
 
     expect(report.remedies.remediation_schedule.length).toBeGreaterThan(0)
@@ -248,8 +321,8 @@ describe('generateReportV2 — Scenario A (§22 D10 downgrade)', () => {
     expect(recommendation?.legal_status).toBe('risk_based_recommendation')
     expect(report.remedies.legal_requirements.some((r) => r.rule_id === 'R-D01-hardboard')).toBe(false)
 
-    const section15 = report.sections.find((s) => s.id === 15)!
-    const section16 = report.sections.find((s) => s.id === 16)!
+    const section15 = section(report, 'Legal requirements')
+    const section16 = section(report, 'LACORS / risk-based recommendations')
     expect(section15.body).not.toContain(recommendation!.text)
     expect(section16.body).toContain(`Recommended: ${recommendation!.text}`)
   })
@@ -259,7 +332,7 @@ describe('generateReportV2 — Scenario A (§22 D10 downgrade)', () => {
     const recommendation = report.remedies.recommendations.find((r) => r.rule_id === 'R-D01-hardboard')
     expect(recommendation?.legal_status).toBe('lacors_benchmark_recommendation')
 
-    const section16 = report.sections.find((s) => s.id === 16)!
+    const section16 = section(report, 'LACORS / risk-based recommendations')
     expect(section16.body).toContain(`Recommended: ${recommendation!.text}`)
   })
 })
@@ -271,13 +344,13 @@ describe('generateReportV2 — Scenario A (§22 D10 downgrade)', () => {
 describe('generateReportV2 — section 10 (stair compartmentation)', () => {
   it('is marked not applicable for a separate-entrance property', () => {
     const report = reportFor({ ...purposeBuilt(), B1: a('separate') })
-    const section10 = report.sections.find((s) => s.id === 10)!
+    const section10 = section(report, 'Stair compartmentation assessment')
     expect(section10.body).toMatch(/Not applicable/)
   })
 
   it('assesses the shared staircase for a communal-entrance property', () => {
     const report = reportFor({ ...convertedS257(), B1: a('communal') })
-    const section10 = report.sections.find((s) => s.id === 10)!
+    const section10 = section(report, 'Stair compartmentation assessment')
     expect(section10.body).not.toMatch(/Not applicable/)
     expect(section10.body).toMatch(/Overall for this area:/)
   })
@@ -298,8 +371,10 @@ describe('generateReportV2 — purity', () => {
     const r1 = generateReportV2(PROPERTY, answers, classification, legalFramework, risk, remedies)
     const r2 = generateReportV2(PROPERTY, answers, classification, legalFramework, risk, remedies)
 
-    // Section 1 embeds `generated_at`, which legitimately differs between calls.
-    expect(r1.sections.slice(1)).toEqual(r2.sections.slice(1))
+    // Property and inspection details embed `generated_at`, which legitimately differs between calls.
+    expect(r1.sections.filter((s) => !['Property details', 'Inspection details'].includes(s.title))).toEqual(
+      r2.sections.filter((s) => !['Property details', 'Inspection details'].includes(s.title))
+    )
     expect(r1.classification).toEqual(r2.classification)
     expect(r1.remedies).toEqual(r2.remedies)
   })

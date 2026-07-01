@@ -14,6 +14,7 @@
 
 import type { Color, PDFFont } from 'pdf-lib'
 import type { ReportV2 } from './reportGenerator.v2'
+import { REPORT_TITLE } from '../state/reportMetadata'
 
 // A4 portrait, in PDF points (1/72").
 const PAGE = { width: 595.28, height: 841.89 }
@@ -83,9 +84,9 @@ export async function generateReportPdf(report: ReportV2): Promise<Uint8Array> {
   const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib')
 
   const doc = await PDFDocument.create()
-  doc.setTitle('Fire Safety Assessment Report')
+  doc.setTitle(REPORT_TITLE)
   doc.setCreator('FireRegs Richmond fire-compliance tool')
-  doc.setProducer('FireRegs Richmond fire-compliance tool')
+  doc.setProducer('FireRegs Richmond inspection report export')
   doc.setCreationDate(new Date(report.generated_at))
 
   const font = await doc.embedFont(StandardFonts.Helvetica)
@@ -127,7 +128,7 @@ export async function generateReportPdf(report: ReportV2): Promise<Uint8Array> {
   // --- Title block ---
   const p = report.property
   const address = [p.address_line_1, p.address_line_2, p.town, p.postcode_normalised].filter(Boolean).join(', ')
-  draw('Fire Safety Assessment Report', { font: bold, size: TITLE_SIZE, color: accent, gapAfter: 4 })
+  draw(report.title || REPORT_TITLE, { font: bold, size: TITLE_SIZE, color: accent, gapAfter: 4 })
   draw(address + (p.flat_ref ? ` — ${p.flat_ref}` : ''), { font, size: BODY_SIZE, gapAfter: 2 })
   const generated = new Date(report.generated_at).toLocaleDateString('en-GB', { dateStyle: 'long' })
   draw(`Generated: ${generated}  ·  Rules: ${report.rules_version}  ·  App: ${report.app_version}`, {
@@ -147,7 +148,7 @@ export async function generateReportPdf(report: ReportV2): Promise<Uint8Array> {
   // --- Footer + page numbers (second pass, once page count is known) ---
   const pages = doc.getPages()
   const total = pages.length
-  const footerText = pdfSafe('FireRegs assessment — guidance only, not a formal fire risk assessment')
+  const footerText = pdfSafe(`${REPORT_TITLE} - landlord / responsible person inspection record`)
   pages.forEach((pg, i) => {
     pg.drawText(footerText, { x: MARGIN, y: FOOTER_Y, size: FOOTER_SIZE, font, color: muted })
     const label = `Page ${i + 1} of ${total}`

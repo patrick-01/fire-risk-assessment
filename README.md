@@ -1,6 +1,6 @@
 # Richmond Fire Compliance Tool
 
-A client-side self-assessment tool for landlords and property managers of rented residential properties in the London Borough of Richmond upon Thames, based on the LACORS Fire Safety Guidance for Existing Housing.
+A client-side fire safety inspection record tool for landlords and property managers of rented residential properties in the London Borough of Richmond upon Thames, based on the LACORS Fire Safety Guidance for Existing Housing.
 
 **No backend. No database. No accounts. All data stays in your browser.**
 
@@ -66,13 +66,16 @@ src/
 │   ├── schema/
 │   │   └── questions.ts       Question bank + branching graph
 │   └── rules/
-│       └── remedy-rules.ts    Remedy rule definitions
+│       ├── remedy-rules.ts    Legacy rule text source
+│       └── remedy-rules.v2.ts Live v2 remedy rule definitions
 │
 ├── engine/            Pure functions — no React, no DOM
 │   ├── navigator.ts           Next-question + progress + invalidation
 │   ├── classifier.ts          Layer 2: classification from answers
-│   ├── remedyEngine.ts        Layer 3: active remedies from classification
-│   ├── reportGenerator.ts     Structured report from classification + remedies
+│   ├── riskEngine.ts          Layer 3: risk from evidence + classification
+│   ├── remedyEngine.v2.ts     Layer 4: active remedies from risk + classification
+│   ├── reportGenerator.v2.ts  Layer 5: structured 19-section report
+│   ├── pdfReport.ts           Pure PDF renderer for v2 reports
 │   └── uncertainty.ts         Uncertainty behaviour code helpers
 │
 ├── persistence/
@@ -98,13 +101,21 @@ src/
     └── global.css
 ```
 
-### Three-layer model (per requirements §2.1)
+### V2 engine model
 
 | Layer | Module | Input | Output |
 |---|---|---|---|
 | 1 — Facts | `reducer.ts` / `navigator.ts` | User answers | `AnswerMap` |
-| 2 — Classification | `classifier.ts` | `AnswerMap` | `Classification` |
-| 3 — Remedies | `remedyEngine.ts` + `reportGenerator.ts` | `AnswerMap` + `Classification` | `ActiveRemedy[]` + `Report` |
+| 2 — Classification | `classifier.ts` → `classify()` | `AnswerMap` | `BuildingClassification` |
+| 2b — Legal framework | `classifier.ts` → `deriveLegalFramework()` | `AnswerMap` + classification | `LegalFrameworkAssessment` |
+| 3 — Risk | `riskEngine.ts` → `computeRisk()` | `AnswerMap` + classification | `RiskAssessment` |
+| 4 — Remedies | `remedyEngine.v2.ts` → `computeRemediesV2()` | answers + classification + risk | `RemedySummary` |
+| 5 — Report | `reportGenerator.v2.ts` → `generateReportV2()` | all of the above | `ReportV2` |
+
+Building type selects the legal framework; physical evidence determines risk. A purpose-built
+two-flat building is not a Section 257 HMO, but statutory rented-property duties still apply and
+general LACORS guidance remains a risk reference. Converted pre-1991 two-flat stock may be assessed
+against the Section 257 / LACORS case-study benchmarks.
 
 ---
 
@@ -114,7 +125,8 @@ Edit `src/data/schema/questions.ts`. Add a new entry to `QUESTIONS`. The navigat
 
 ## Adding remedy rules
 
-Edit `src/data/rules/remedy-rules.ts`. Add a new entry to `REMEDY_RULES`. Increment `RULES_VERSION`. The remedy engine evaluates it automatically. No UI changes required.
+Edit `src/data/rules/remedy-rules.v2.ts`. Add a new entry to `REMEDY_RULES_V2`. Increment
+`RULES_VERSION_V2`. The remedy engine evaluates it automatically. No UI changes required.
 
 ---
 
@@ -124,9 +136,9 @@ Edit `src/data/rules/remedy-rules.ts`. Add a new entry to `REMEDY_RULES`. Increm
 |---|---|---|
 | `SCHEMA_VERSION` | `src/state/AppState.ts` | Saved assessment JSON shape |
 | `APP_VERSION` | `src/state/AppState.ts` | App code version |
-| `RULES_VERSION` | `src/data/rules/remedy-rules.ts` | Compliance rules version |
+| `RULES_VERSION_V2` | `src/data/rules/remedy-rules.v2.ts` | Compliance rules version |
 
-When `RULES_VERSION` changes, assessments saved under the old version display a banner when reopened.
+When `RULES_VERSION_V2` changes, assessments saved under the old version display a banner when reopened.
 
 ---
 
@@ -160,7 +172,8 @@ Follow these steps in a browser against the deployed build (or `npm run dev` loc
    - Click it to resume. The questionnaire should re-open at the current question.
 
 3. **Out-of-scope flow**
-   - Start a new assessment and answer `A1 = purpose-built` (or any answer that routes to `not-section-257`).
+   - Start a new assessment and answer a genuinely unsupported scope answer, such as `A3 = 3_or_more`
+     or `A5 = no`.
    - The tool must navigate to the out-of-scope screen with an explanatory message.
 
 4. **Export JSON**
@@ -189,14 +202,12 @@ Follow these steps in a browser against the deployed build (or `npm run dev` loc
 
 ## Deferred work (not in v1)
 
-- [ ] **PDF export** — `pdf-lib` renderer in `ReportPage` (requirements §12)
 - [ ] **Service worker / offline** — uncomment `vite-plugin-pwa` in `vite.config.ts`
 - [ ] **Zod schema validation** — replace hand-written field checks in `importAssessmentJson`
-- [ ] **Full remedy rule set** — additional sections in `remedy-rules.ts`
-- [ ] **Desktop layout** — section-at-a-time view per requirements §7.1
+- [ ] **Full remedy rule set** — additional sections in `remedy-rules.v2.ts`
 
 ---
 
 ## Disclaimer
 
-This tool does not constitute a formal fire risk assessment, a legally binding compliance certificate, or advice from Richmond upon Thames Council. It does not replace a qualified fire risk assessor or written confirmation from the council.
+Reports are intended to assist the Responsible Person in reviewing fire safety arrangements, recording identified risks, and tracking remedial actions. They are not statutory compliance certificates or confirmation from the local authority.

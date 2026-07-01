@@ -212,6 +212,8 @@ fieldset { border: none; }
 .report-meta--small { font-size: .8rem; }
 .report-section { margin-bottom: 2rem; }
 .report-section--disclaimer { border-top: 1px solid var(--color-border); padding-top: 1rem; font-size: .875rem; color: var(--color-text-muted); }
+.report-section--inspection-details { border: 1px solid var(--color-border); border-radius: var(--radius); padding: 1rem 1.25rem; background: var(--color-surface); }
+.report-section--declaration { border-top: 2px solid var(--color-border); padding-top: 1.25rem; }
 .tier-description { color: var(--color-text-muted); font-size: .9rem; margin-bottom: .75rem; }
 .completeness-score { font-size: .9rem; }
 .remedy-list { list-style: none; padding: 0; }
@@ -224,6 +226,14 @@ fieldset { border: none; }
 .remedy-item__text  { font-size: .9rem; margin-bottom: .4rem; }
 .remedy-item__refs  { font-size: .8rem; color: var(--color-text-muted); }
 .report-actions { display: flex; gap: .75rem; flex-wrap: wrap; margin-top: 1.5rem; }
+.report-field-grid { display: grid; grid-template-columns: 1fr; gap: .75rem; margin: 1rem 0; }
+.report-field { display: flex; flex-direction: column; gap: .25rem; font-size: .875rem; font-weight: 600; color: var(--color-text-muted); }
+.report-field .text-input { font-weight: 400; color: var(--color-text); background: #fff; }
+.report-field--wide { margin-top: .75rem; }
+.report-textarea { min-height: 7rem; resize: vertical; line-height: 1.5; }
+.report-textarea--small { min-height: 4rem; }
+.report-details-summary { margin-bottom: .75rem; }
+.signature-input { min-height: 2.8rem; }
 
 /* --- Out of scope --------------------------------------- */
 .page--out-of-scope h1 { color: var(--color-warning); }
@@ -434,13 +444,72 @@ fieldset { border: none; }
 /* Remediation schedule */
 .schedule-list { padding-left: 1.5rem; }
 .schedule-item { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding: .4rem 0; border-bottom: 1px solid var(--color-border); }
+.schedule-item--tracking { display: block; padding: 1rem 0; break-inside: avoid; page-break-inside: avoid; }
+.schedule-item__main { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-bottom: .4rem; }
+.schedule-item__ref { font-family: var(--font-mono); font-size: .78rem; color: var(--color-text-muted); }
 .schedule-item__priority { font-size: .8rem; font-weight: 600; color: var(--color-text-muted); }
 .schedule-item__title { flex: 1; min-width: 12rem; font-size: .9rem; }
+.schedule-item__action { font-size: .85rem; color: var(--color-text-muted); margin-bottom: .75rem; }
 .schedule-item__scope { font-size: .78rem; color: var(--color-text-muted); }
+.schedule-tracking-grid { display: grid; grid-template-columns: 1fr; gap: .65rem; }
+.report-history-table { width: 100%; }
 
 /* --- Responsive ---------------------------------------- */
 @media (min-width: 600px) {
   .page { padding: 1.5rem 2rem; }
   h1 { font-size: 2rem; }
   .review-table__question { max-width: 360px; }
+  .report-field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .report-field-grid--signature { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .schedule-tracking-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .schedule-tracking-grid .report-field--wide { grid-column: 1 / -1; margin-top: 0; }
+}
+
+@media print {
+  :root { --max-width: 100%; }
+  body { background: #fff; color: #111; font-size: 11pt; line-height: 1.45; }
+  .page { max-width: none; padding: 0; }
+  .global-banner,
+  .report-actions,
+  .share-error,
+  .banner__dismiss,
+  .btn,
+  .questionnaire-nav,
+  .review-actions {
+    display: none !important;
+  }
+  .report-header { border-bottom: 2px solid #444; margin-bottom: 1rem; }
+  .report-section,
+  .remedy-item,
+  .schedule-item--tracking,
+  .report-section--inspection-details,
+  .report-section--statutory,
+  .report-section--risk {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .report-section { margin-bottom: 1rem; }
+  .report-section--inspection-details,
+  .report-section--framework,
+  .report-section--statutory,
+  .report-section--risk {
+    background: #fff;
+    border-color: #bbb;
+    box-shadow: none;
+  }
+  .text-input {
+    border: 1px solid #aaa;
+    min-height: 1.8rem;
+  }
+  .report-textarea { min-height: 4rem; }
+  table,
+  .risk-dimension-table {
+    width: 100%;
+    font-size: 9pt;
+  }
+  .risk-dimension-table th,
+  .risk-dimension-table td {
+    padding: .25rem .35rem;
+  }
+  a[href]::after { content: ""; }
 }

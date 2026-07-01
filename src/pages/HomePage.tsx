@@ -126,12 +126,12 @@ export default function HomePage() {
       <header className="home-header">
         <h1>Richmond Fire Compliance Tool</h1>
         <p className="home-subtitle">
-          Self-assessment for rented residential properties in the London Borough of Richmond upon
-          Thames, based on the LACORS Fire Safety Guidance for Existing Housing.
+          Fire safety inspection record support for rented residential properties in the London
+          Borough of Richmond upon Thames, based on the LACORS Fire Safety Guidance for Existing Housing.
         </p>
         <p className="home-disclaimer">
-          This tool does not produce a formal fire risk assessment or a legally binding compliance
-          certificate. It does not replace a qualified fire risk assessor.
+          Reports are intended for landlord and Responsible Person records. They are not statutory
+          compliance certificates or confirmation from the local authority.
         </p>
       </header>
 

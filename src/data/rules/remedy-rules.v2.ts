@@ -35,8 +35,8 @@
 import type { RemedyRule, RuleCondition } from '../../state/AppState'
 import { REMEDY_RULES } from './remedy-rules'
 
-export const RULES_VERSION_V2 = '2026-06-v3' as const
-export const RULES_DATE_V2 = '2026-06-30' as const
+export const RULES_VERSION_V2 = '2026-07-v1' as const
+export const RULES_DATE_V2 = '2026-07-01' as const
 
 // ---------------------------------------------------------------------------
 // v1 lookup — reuse title/text/risk_basis/regulatory_refs verbatim
@@ -617,6 +617,24 @@ export const REMEDY_RULES_V2: RemedyRule[] = [
     confidence: 'confirmed',
   },
 
+  {
+    id: 'R-B03',
+    title: 'Confirm weather-safe external stair condition',
+    legal_status: 'further_investigation_required',
+    priority: 'investigate',
+    applies_to: 'upper_flat',
+    condition: anyOf(rf('RF-ESC-WEATHER'), rf('RF-ESC-WEATHER-UNK')),
+    text:
+      'Confirm that the external steel escape stair remains usable in wet weather, including ' +
+      'slip-resistant treads, sound landings and handrails, drainage and general condition. Repair ' +
+      'or maintain the route where those features are not adequate.',
+    risk_basis:
+      'An external escape stair only reduces escape-route risk if it can be safely used when needed. ' +
+      'LACORS §18.2 highlights weather protection and safe condition for external stairs.',
+    regulatory_refs: ['LACORS §18.2'],
+    confidence: 'unknown',
+  },
+
   // =========================================================================
   // Escape route adequacy / inner rooms
   // =========================================================================
@@ -635,16 +653,109 @@ export const REMEDY_RULES_V2: RemedyRule[] = [
   },
 
   {
+    id: 'R-GF-C01',
+    title: 'No qualifying bedroom escape window and no rear exit for the ground-floor flat',
+    legal_status: 'risk_based_recommendation',
+    priority: 'P2_high',
+    applies_to: 'ground_flat',
+    condition: rf('RF-GF-C01'),
+    text:
+      'Review the ground-floor flat escape strategy. Where there is no rear exit and no qualifying ' +
+      'bedroom escape window, the flat may rely on the shared/front route as the practical means of ' +
+      'escape; upgrade the route, provide a qualifying alternative, or obtain competent-person advice.',
+    risk_basis:
+      'LACORS §14 escape-window criteria and §9 escape-route principles apply to each dwelling. ' +
+      'A ground-floor rear exit suppresses this finding; without one, non-qualifying bedroom windows ' +
+      'are a material escape-route risk.',
+    regulatory_refs: ['LACORS §9', 'LACORS §14'],
+    confidence: 'probable',
+  },
+
+  {
     id: 'R-C10',
     title: v1('R-C10').title,
     legal_status: 'further_investigation_required',
     priority: 'investigate',
-    applies_to: 'ground_flat',
+    applies_to: 'upper_flat',
     condition: rf('RF-C03'),
     text: v1('R-C10').text,
     risk_basis: v1('R-C10').risk_basis,
     regulatory_refs: v1('R-C10').regulatory_refs,
     confidence: 'probable',
+  },
+
+  {
+    id: 'R-GF-C10',
+    title: 'Ground-floor bedroom inner-room condition requires review',
+    legal_status: 'further_investigation_required',
+    priority: 'investigate',
+    applies_to: 'ground_flat',
+    condition: anyOf(rf('RF-GF-C03'), rf('RF-GF-C03-UNK')),
+    text:
+      'Review the ground-floor flat layout for inner-room risk. A bedroom reached only through a ' +
+      'habitable room may need a protected route, a qualifying escape window, altered layout, or ' +
+      'competent-person confirmation that the existing arrangement is acceptable.',
+    risk_basis:
+      'LACORS §12 treats inner rooms as a material risk because a fire in the outer room can block ' +
+      'escape before occupants in the inner room are aware of it.',
+    regulatory_refs: ['LACORS §12', 'LACORS §14'],
+    confidence: 'probable',
+  },
+
+  {
+    id: 'R-LOFT',
+    title: 'Confirm protected escape from the loft / upper level',
+    legal_status: 'lacors_benchmark_recommendation',
+    downgrade_if: D10_NOT_APPLICABLE,
+    priority: 'P2_high',
+    applies_to: 'upper_flat',
+    condition: rf('RF-LOFT-ESCAPE'),
+    text:
+      'Provide or verify a protected internal escape route, or a separate secondary means of escape, ' +
+      'for the loft / upper level of the upper flat. Rooms above about 4.5m should not be treated as ' +
+      'adequately served by escape windows alone.',
+    risk_basis:
+      'A two-level upper flat or loft conversion can move the benchmark from Case Study D10 toward ' +
+      'Case Study D11. LACORS §14 limits reliance on escape windows above 4.5m, and §17 addresses ' +
+      'protected routes and alternative escape from higher-risk layouts.',
+    regulatory_refs: ['LACORS §14', 'LACORS §17', 'LACORS Case Study D11'],
+    confidence: 'probable',
+  },
+
+  {
+    id: 'R-CONSERVATION',
+    title: 'Plan fire-safety upgrades around listed-building / conservation constraints',
+    legal_status: 'advisory_good_practice',
+    priority: 'P4_low',
+    applies_to: 'building',
+    condition: allOf(
+      { type: 'leaf', question_id: 'A6', in_values: ['yes'] },
+      anyOf(
+        rf('RF-C01'),
+        rf('RF-GF-C01'),
+        rf('RF-LOFT-ESCAPE'),
+        rf('RF-DR-GF-CONSTR'),
+        rf('RF-DR-UF-CONSTR'),
+        rf('RF-DR-GF-FIT'),
+        rf('RF-DR-UF-FIT'),
+        rf('RF-S01'),
+        rf('RF-S02'),
+        rf('RF-S03'),
+        rf('RF-S04'),
+        rf('RF-S-LOWER')
+      )
+    ),
+    text:
+      'Because the building is listed or in a conservation area, specify fire-safety works in a way ' +
+      'that preserves significance where possible: consider upgrade-in-situ, evidence-led repair, ' +
+      'and compensatory detection before wholesale replacement. Listed-building consent or ' +
+      'conservation planning advice may be required.',
+    risk_basis:
+      'Conservation status affects how works are designed and consented, not whether fire risk is ' +
+      'ignored. LACORS recognises upgrade-in-situ and compensatory detection options for existing ' +
+      'construction where replacement is not straightforward.',
+    regulatory_refs: ['LACORS §19.6', 'LACORS §21.8'],
+    confidence: 'confirmed',
   },
 
   // =========================================================================

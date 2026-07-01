@@ -46,12 +46,24 @@ import type {
   ComponentStatus,
   StairCompartmentationSummary,
   DetectionStrategySummary,
+  ReportMetadata,
+  RemediationTracking,
 } from '../state/AppState'
 import { APP_VERSION } from '../state/AppState'
 import { RULES_VERSION_V2, RULES_DATE_V2 } from '../data/rules/remedy-rules.v2'
 import { QUESTION_MAP } from '../data/schema/questions'
 import { shouldShowQuestion } from './navigator'
-import { deriveStairCompartmentation, deriveDetectionStrategy } from './classifier'
+import { deriveStairCompartmentation, deriveDetectionStrategy, deriveEscapeStrategy } from './classifier'
+import {
+  DEFAULT_DECLARATION,
+  INSPECTION_PURPOSE_TEXT,
+  INSPECTION_TYPE_LABELS,
+  REMEDIATION_STATUS_LABELS,
+  REPORT_TITLE,
+  REVIEW_FREQUENCY_TEXT,
+  formatPropertyAddress,
+  normalizeReportMetadataFromContext,
+} from '../state/reportMetadata'
 
 // ---------------------------------------------------------------------------
 // Report types
@@ -65,10 +77,12 @@ export interface ReportSectionV2 {
 }
 
 export interface ReportV2 {
+  title: string
   generated_at: string // ISO 8601
   app_version: string
   rules_version: string
   rules_date: string
+  report_metadata: ReportMetadata
 
   property: PropertyIdentity
   classification: BuildingClassification
@@ -192,16 +206,37 @@ function domainSection(
 
 function formatRemedyLine(remedy: ResolvedRemedy): string {
   const refs = remedy.regulatory_refs.length > 0 ? remedy.regulatory_refs.join('; ') : 'none'
+  const caseStudyTag = remedy.regulatory_refs.some((ref) => ref.includes('D11'))
+    ? 'D11'
+    : remedy.regulatory_refs.some((ref) => ref.includes('D10'))
+      ? 'D10'
+      : 'not case-study-specific'
   return [
     `${toneWord(remedy.legal_status)}: ${remedy.text}`,
     `  Applies to: ${SCOPE_LABELS[remedy.applies_to]}. Priority: ${remedy.priority}. Confidence: ${remedy.confidence}.`,
     `  Risk basis: ${remedy.risk_basis}`,
     `  Regulatory refs: ${refs}`,
+    `  Case-study tag: ${caseStudyTag}`,
   ].join('\n')
 }
 
-function formatScheduleLine(remedy: ResolvedRemedy, index: number): string {
-  return `${index + 1}. [${remedy.priority}] (${toneWord(remedy.legal_status)}) ${remedy.title} — ${SCOPE_LABELS[remedy.applies_to]}.`
+function formatMaybeDate(value: string | null): string {
+  return value || ''
+}
+
+function formatScheduleLine(remedy: ResolvedRemedy, index: number, tracking?: RemediationTracking): string {
+  const status = tracking?.status ?? 'outstanding'
+  return [
+    `${index + 1}. [${remedy.priority}] (${toneWord(remedy.legal_status)}) ${remedy.title} — ${SCOPE_LABELS[remedy.applies_to]}.`,
+    `  Action reference: ${remedy.rule_id}`,
+    `  Action: ${remedy.text}`,
+    `  Legal classification: ${remedy.legal_status}`,
+    `  Priority: ${remedy.priority}`,
+    `  Status: ${REMEDIATION_STATUS_LABELS[status]}`,
+    `  Target date: ${formatMaybeDate(tracking?.targetDate ?? null)}`,
+    `  Completed date: ${formatMaybeDate(tracking?.completedDate ?? null)}`,
+    `  Evidence / notes: ${tracking?.evidenceNotes ?? ''}`,
+  ].join('\n')
 }
 
 // ---------------------------------------------------------------------------
@@ -218,6 +253,43 @@ function section1PropertyDetails(property: PropertyIdentity, generatedAt: string
   return { id: 1, title: 'Property details', body: lines.join('\n') }
 }
 
+function sectionInspectionDetails(
+  property: PropertyIdentity,
+  generatedAt: string,
+  metadata: ReportMetadata
+): ReportSectionV2 {
+  const lines = [
+    `Property address: ${formatPropertyAddress(property)}`,
+    `Unit / building reference: ${property.flat_ref ?? ''}`,
+    `Inspection date: ${metadata.inspectionDate}`,
+    `Report generated date: ${generatedAt.slice(0, 10)}`,
+    `Assessor name: ${metadata.assessorName}`,
+    `Assessor role: ${metadata.assessorRole}`,
+    `Organisation: ${metadata.organisation}`,
+    `Responsible person / landlord: ${metadata.responsiblePerson}`,
+    `Inspection type: ${INSPECTION_TYPE_LABELS[metadata.inspectionType]}`,
+    `Previous inspection date: ${metadata.previousInspectionDate ?? ''}`,
+    `Next review due: ${metadata.nextReviewDue}`,
+    `Review frequency: ${REVIEW_FREQUENCY_TEXT}`,
+    `Review cycle months: ${metadata.reviewCycleMonths}`,
+    `Source: ${metadata.source}`,
+    `Folder target: ${metadata.folderTarget ?? ''}`,
+    `Storage path: ${metadata.storagePath ?? ''}`,
+    `Report version: ${metadata.reportVersion}`,
+    `Rules version: ${metadata.rulesVersion}`,
+    `App version: ${metadata.appVersion}`,
+  ]
+  return { id: 2, title: 'Inspection details', body: lines.join('\n') }
+}
+
+function sectionAssessorCompetence(metadata: ReportMetadata): ReportSectionV2 {
+  return {
+    id: 3,
+    title: 'Assessor competence statement',
+    body: metadata.assessorCompetenceStatement,
+  }
+}
+
 function section2ScopeAndLimitations(answers: AnswerMap): ReportSectionV2 {
   const applicableIds = Object.values(QUESTION_MAP)
     .filter((question) => shouldShowQuestion(question, answers))
@@ -226,12 +298,16 @@ function section2ScopeAndLimitations(answers: AnswerMap): ReportSectionV2 {
   const confirmed = applicableIds.filter((id) => answers[id]?.confidence === 'confirmed').length
   const completeness = total === 0 ? 0 : Math.round((confirmed / total) * 100)
 
-  const body =
-    'This report assesses a two-flat residential building against LACORS fire safety guidance ' +
-    'and the statutory frameworks identified in section 4. It is based entirely on answers ' +
-    `supplied by the assessor and has not been verified by a site visit. ${confirmed} of ` +
-    `${total} applicable questions (${completeness}%) were answered with confirmed certainty; ` +
-    'the remainder are recorded as assumptions or further-investigation items in sections 14 and 18.'
+  const body = [
+    'This is one assessment of the whole two-flat building, grouped by ground-floor flat, ' +
+      'upper-floor flat, common parts and building-wide duties.',
+    'How to read this report: LACORS is used either as a direct benchmark where the legal framework ' +
+      'supports that, or as a risk-assessment reference. Findings are separated into four practical tiers: ' +
+      'legal requirements, LACORS / risk-based recommendations, further investigation, and advisory good practice.',
+    'This report is based on the inspection information recorded by the assessor. ' +
+      `${confirmed} of ${total} applicable questions (${completeness}%) were answered with confirmed certainty; ` +
+      'the remainder are recorded as assumptions or further-investigation items in sections 14 and 18.',
+  ].join('\n')
 
   return { id: 2, title: 'Assessment scope and limitations', body }
 }
@@ -242,7 +318,9 @@ function section3PropertyClassification(classification: BuildingClassification):
     `HMO classification: ${HMO_LABELS[classification.hmo]}.`,
     `Section 257 HMO: ${classification.section_257 ? 'Yes' : 'No'}.`,
     `Entrance configuration: ${ENTRANCE_LABELS[classification.entrance_configuration]}.`,
+    `Effective storeys for LACORS benchmarking: ${classification.effective_storeys}.`,
     `Case Study D10 stair-enclosure benchmark: ${classification.case_study_d10}.`,
+    `Case Study D11 loft / three-storey benchmark: ${classification.case_study_d11}.`,
     `General LACORS risk guidance: ${classification.general_lacors_risk_guidance}.`,
     `Classification confidence: ${classification.confidence}.`,
   ]
@@ -294,40 +372,85 @@ function section5CommonParts(classification: BuildingClassification, risk: RiskA
   )
 }
 
-function section6GroundFloorFlat(risk: RiskAssessment): ReportSectionV2 {
+const GROUND_ESCAPE_FACTOR_IDS = new Set(['RF-GF-C01', 'RF-GF-C03', 'RF-GF-C03-UNK'])
+const UPPER_ESCAPE_FACTOR_IDS = new Set(['RF-C01', 'RF-C02', 'RF-C03', 'RF-C04', 'RF-C05', 'RF-B01', 'RF-LOFT-ESCAPE'])
+
+const ESCAPE_ROUTE_LABELS: Record<string, string> = {
+  direct_or_rear_exit: 'direct / rear exit available',
+  protected_route: 'protected or shared route relied upon',
+  window_dependent: 'window-dependent if the front/shared route is blocked',
+  external_escape: 'verified independent external escape route',
+  unverified_external_escape: 'claimed external escape route not yet verified',
+  unknown: 'not yet established',
+}
+
+function section6GroundFloorFlat(
+  classification: BuildingClassification,
+  risk: RiskAssessment,
+  answers: AnswerMap
+): ReportSectionV2 {
+  const escape = deriveEscapeStrategy(answers, classification).ground_flat
   const intro =
-    'The ground-floor flat normally has its own street-level entrance, independent of the ' +
-    'shared escape route. The current risk model assesses ground-floor-specific risk via its ' +
-    'entrance door only.'
-  const factors = risk.risk_factors.filter((factor) => factor.domain === 'doors' && factor.id.includes('-GF-'))
+    'The ground-floor flat is assessed for its entrance door and, where no rear/direct exit exists, ' +
+    'its bedroom escape-window and inner-room position.'
+  const escapeLines = [
+    `Escape strategy: ${ESCAPE_ROUTE_LABELS[escape.route]}.`,
+    `Bedroom 1 escape window: ${escape.bedroom_1_window}.`,
+    `Bedroom 2 escape window: ${escape.bedroom_2_window}.`,
+    `Bedroom inner-room condition: ${escape.inner_room}.`,
+  ].join('\n')
+  const factors = risk.risk_factors.filter(
+    (factor) =>
+      (factor.domain === 'doors' && factor.id.includes('-GF-')) ||
+      GROUND_ESCAPE_FACTOR_IDS.has(factor.id)
+  )
   const summary = summariseFactors(factors)
   return {
     id: 6,
     title: 'Ground-floor flat assessment',
-    body: [intro, domainOverviewLine(summary), listFactors(factors, 'No ground-floor-flat-specific risk factors identified.')].join(
+    body: [intro, escapeLines, domainOverviewLine(summary), listFactors(factors, 'No ground-floor-flat-specific risk factors identified.')].join(
       '\n'
     ),
   }
 }
 
-function section7UpperFloorFlat(risk: RiskAssessment): ReportSectionV2 {
+function section7UpperFloorFlat(
+  classification: BuildingClassification,
+  risk: RiskAssessment,
+  answers: AnswerMap
+): ReportSectionV2 {
+  const escape = deriveEscapeStrategy(answers, classification).upper_flat
   const intro =
     'The upper-floor flat depends on its entrance door and, where no independent escape route ' +
     'exists, the shared staircase or hall for escape.'
+  const escapeLines = [
+    `Escape strategy: ${ESCAPE_ROUTE_LABELS[escape.route]}.`,
+    `Bedroom 1 escape window: ${escape.bedroom_1_window}.`,
+    `Bedroom 2 escape window: ${escape.bedroom_2_window}.`,
+    `Bedroom inner-room condition: ${escape.inner_room}.`,
+    `Relevant LACORS case-study benchmark: ${deriveEscapeStrategy(answers, classification).benchmark_case_study}.`,
+  ].join('\n')
   const doorFactors = risk.risk_factors.filter((factor) => factor.domain === 'doors' && factor.id.includes('-UF-'))
-  const escapeFactors = risk.risk_factors.filter((factor) => factor.domain === 'escape')
+  const escapeFactors = risk.risk_factors.filter((factor) => UPPER_ESCAPE_FACTOR_IDS.has(factor.id))
   const factors = [...doorFactors, ...escapeFactors]
   const summary = summariseFactors(factors)
   return {
     id: 7,
     title: 'Upper-floor flat assessment',
-    body: [intro, domainOverviewLine(summary), listFactors(factors, 'No upper-floor-flat-specific risk factors identified.')].join(
+    body: [intro, escapeLines, domainOverviewLine(summary), listFactors(factors, 'No upper-floor-flat-specific risk factors identified.')].join(
       '\n'
     ),
   }
 }
 
-const EXTERNAL_ESCAPE_FACTOR_IDS = new Set(['RF-ESC-VERIFY', 'RF-ESC-RESTORE', 'RF-B01', 'RF-C01'])
+const EXTERNAL_ESCAPE_FACTOR_IDS = new Set([
+  'RF-ESC-VERIFY',
+  'RF-ESC-RESTORE',
+  'RF-ESC-WEATHER',
+  'RF-ESC-WEATHER-UNK',
+  'RF-B01',
+  'RF-C01',
+])
 
 function section8ExternalEscapeRoute(classification: BuildingClassification, risk: RiskAssessment): ReportSectionV2 {
   const intro =
@@ -516,11 +639,16 @@ function section16Recommendations(remedies: RemedySummary): ReportSectionV2 {
   return { id: 16, title: 'LACORS / risk-based recommendations', body: lines.join('\n') }
 }
 
-function section17RemediationSchedule(remedies: RemedySummary): ReportSectionV2 {
+function section17RemediationSchedule(remedies: RemedySummary, metadata: ReportMetadata): ReportSectionV2 {
   const body =
     remedies.remediation_schedule.length === 0
       ? 'No remediation items were identified.'
-      : remedies.remediation_schedule.map((remedy, index) => formatScheduleLine(remedy, index)).join('\n') +
+      : [
+          'Action reference | Action | Legal classification | Priority | Status | Target date | Completed date | Evidence / notes',
+          remedies.remediation_schedule
+            .map((remedy, index) => formatScheduleLine(remedy, index, metadata.remediationTracking[remedy.rule_id]))
+            .join('\n\n'),
+        ].join('\n') +
         '\n\nSee sections 15 and 16 for full detail on each item.'
   return { id: 17, title: 'Remediation schedule', body }
 }
@@ -546,17 +674,63 @@ function section18EvidenceAndAssumptions(classification: BuildingClassification,
   return { id: 18, title: 'Evidence and assumptions', body: lines.join('\n') }
 }
 
-const DISCLAIMER_TEXT =
-  'This report is produced by a self-assessment tool and does not constitute a formal fire ' +
-  'risk assessment, a legally binding compliance certificate, or advice from Richmond upon ' +
-  'Thames Council. It does not replace a qualified fire risk assessor or written confirmation ' +
-  'from the council. All recommendations should be read as general guidance grounded in LACORS ' +
-  'principles, not as definitive legal requirements specific to this property, except where ' +
-  'explicitly marked "Required". A competent person should verify all findings and specify any ' +
-  'works before they are carried out.'
+function sectionInspectionReviewHistory(
+  metadata: ReportMetadata,
+  risk: RiskAssessment,
+  remedies: RemedySummary
+): ReportSectionV2 {
+  const outstanding = remedies.remediation_schedule.filter((remedy) => {
+    const status = metadata.remediationTracking[remedy.rule_id]?.status ?? 'outstanding'
+    return status === 'outstanding' || status === 'in_progress'
+  })
+  const currentActions =
+    outstanding.length === 0
+      ? 'None recorded'
+      : outstanding.slice(0, 3).map((remedy) => remedy.title).join('; ') + (outstanding.length > 3 ? `; +${outstanding.length - 3} more` : '')
+  const currentRow = {
+    inspectionDate: metadata.inspectionDate,
+    inspectionType: metadata.inspectionType,
+    assessor: metadata.assessorName,
+    overallRisk: risk.overall_severity,
+    keyOutstandingActions: currentActions,
+    nextReviewDue: metadata.nextReviewDue,
+  }
+  const rows = metadata.reviewHistory.length > 0 ? metadata.reviewHistory : [currentRow]
+  const body = [
+    'Inspection date | Inspection type | Assessor | Overall risk | Key outstanding actions | Next review due',
+    ...rows.map((row) =>
+      [
+        row.inspectionDate,
+        INSPECTION_TYPE_LABELS[row.inspectionType],
+        row.assessor,
+        row.overallRisk,
+        row.keyOutstandingActions,
+        row.nextReviewDue,
+      ].join(' | ')
+    ),
+  ].join('\n')
+  return { id: 19, title: 'Inspection and review history', body }
+}
 
-function section19Disclaimer(): ReportSectionV2 {
-  return { id: 19, title: 'Disclaimer', body: DISCLAIMER_TEXT }
+function sectionAssessorDeclaration(metadata: ReportMetadata): ReportSectionV2 {
+  const lines = [
+    metadata.declaration || DEFAULT_DECLARATION,
+    '',
+    `Assessor name: ${metadata.assessorName}`,
+    `Signature: ${metadata.signature}`,
+    `Date signed: ${metadata.dateSigned ?? ''}`,
+    `Role / capacity: ${metadata.assessorRole}`,
+    `Next review due: ${metadata.nextReviewDue}`,
+  ]
+  return { id: 20, title: 'Assessor declaration and signature', body: lines.join('\n') }
+}
+
+function sectionReportPurposeAndLimitations(): ReportSectionV2 {
+  return { id: 21, title: 'Report purpose and limitations', body: INSPECTION_PURPOSE_TEXT }
+}
+
+function renumberSections(sections: ReportSectionV2[]): ReportSectionV2[] {
+  return sections.map((section, index) => ({ ...section, id: index + 1 }))
 }
 
 // ---------------------------------------------------------------------------
@@ -573,18 +747,28 @@ export function generateReportV2(
   classification: BuildingClassification,
   legalFramework: LegalFrameworkAssessment,
   risk: RiskAssessment,
-  remedies: RemedySummary
+  remedies: RemedySummary,
+  reportMetadata?: Partial<ReportMetadata>
 ): ReportV2 {
   const generatedAt = new Date().toISOString()
+  const metadata = normalizeReportMetadataFromContext({
+    createdAt: generatedAt,
+    reportGeneratedAt: generatedAt,
+    rulesVersion: RULES_VERSION_V2,
+    appVersion: APP_VERSION,
+    existing: reportMetadata,
+  })
 
-  const sections: ReportSectionV2[] = [
+  const sections: ReportSectionV2[] = renumberSections([
     section1PropertyDetails(property, generatedAt),
+    sectionInspectionDetails(property, generatedAt, metadata),
+    sectionAssessorCompetence(metadata),
     section2ScopeAndLimitations(answers),
     section3PropertyClassification(classification),
     section4LegalFramework(legalFramework),
     section5CommonParts(classification, risk),
-    section6GroundFloorFlat(risk),
-    section7UpperFloorFlat(risk),
+    section6GroundFloorFlat(classification, risk, answers),
+    section7UpperFloorFlat(classification, risk, answers),
     section8ExternalEscapeRoute(classification, risk),
     section9DoorsAndRouteProtection(risk),
     section10StairCompartmentation(classification, risk, answers),
@@ -594,16 +778,20 @@ export function generateReportV2(
     section14UnknownRisks(risk, remedies),
     section15LegalRequirements(remedies),
     section16Recommendations(remedies),
-    section17RemediationSchedule(remedies),
+    section17RemediationSchedule(remedies, metadata),
     section18EvidenceAndAssumptions(classification, remedies),
-    section19Disclaimer(),
-  ]
+    sectionInspectionReviewHistory(metadata, risk, remedies),
+    sectionAssessorDeclaration(metadata),
+    sectionReportPurposeAndLimitations(),
+  ])
 
   return {
+    title: REPORT_TITLE,
     generated_at: generatedAt,
     app_version: APP_VERSION,
     rules_version: RULES_VERSION_V2,
     rules_date: RULES_DATE_V2,
+    report_metadata: metadata,
     property,
     classification,
     legal_framework: legalFramework,

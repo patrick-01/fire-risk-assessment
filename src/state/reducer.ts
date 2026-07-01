@@ -32,6 +32,7 @@ import {
   getOutOfScopeReason,
 } from '../engine/navigator'
 import { RULES_VERSION_V2 as RULES_VERSION } from '../data/rules/remedy-rules.v2'
+import { normalizeReportMetadata, withReportMetadata } from './reportMetadata'
 
 // ---------------------------------------------------------------------------
 // Actions
@@ -55,6 +56,10 @@ export type AppAction =
   | { type: 'SET_SAVING'; payload: boolean }
   | { type: 'SET_BANNER'; payload: string | null }
   | { type: 'MARK_REPORT_GENERATED' }
+  | {
+      type: 'UPDATE_REPORT_METADATA'
+      payload: Partial<NonNullable<Assessment['report_metadata']>>
+    }
   /**
    * IMPORT_ASSESSMENT — loads an imported or shared assessment.
    *
@@ -114,7 +119,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       }
       return {
         ...state,
-        activeAssessment: assessment,
+        activeAssessment: withReportMetadata(assessment),
         screen: 'property-setup',
       }
     }
@@ -141,7 +146,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
       return {
         ...state,
-        activeAssessment: { ...assessment, classification: freshClassification },
+        activeAssessment: withReportMetadata({ ...assessment, classification: freshClassification }),
         screen,
         outOfScopeReason: outOfScopeReason ?? null,
         bannerMessage: mismatch && !outOfScopeReason
@@ -284,13 +289,36 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'MARK_REPORT_GENERATED': {
       if (!state.activeAssessment) return state
       const now = new Date().toISOString()
+      const baseAssessment = {
+        ...state.activeAssessment,
+        report_generated_at: now,
+        last_edited_at: now,
+      }
       return {
         ...state,
-        activeAssessment: {
-          ...state.activeAssessment,
-          report_generated_at: now,
-          last_edited_at: now,
+        activeAssessment: withReportMetadata(baseAssessment),
+        isSaving: true,
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    case 'UPDATE_REPORT_METADATA': {
+      if (!state.activeAssessment) return state
+      const now = new Date().toISOString()
+      const current = normalizeReportMetadata(state.activeAssessment)
+      const updatedAssessment: Assessment = {
+        ...state.activeAssessment,
+        report_metadata: {
+          ...current,
+          ...action.payload,
+          remediationTracking: action.payload.remediationTracking ?? current.remediationTracking,
+          reviewHistory: action.payload.reviewHistory ?? current.reviewHistory,
         },
+        last_edited_at: now,
+      }
+      return {
+        ...state,
+        activeAssessment: withReportMetadata(updatedAssessment),
         isSaving: true,
       }
     }
@@ -325,7 +353,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
       return {
         ...state,
-        activeAssessment: { ...assessment, classification: freshClassification },
+        activeAssessment: withReportMetadata({ ...assessment, classification: freshClassification }, source === 'file_import' ? 'imported_json' : undefined),
         screen,
         outOfScopeReason: outOfScopeReason ?? null,
         bannerMessage: bannerParts.join(' '),

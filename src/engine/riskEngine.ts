@@ -41,8 +41,10 @@ import type {
   RiskSeverity,
 } from '../state/AppState'
 import {
+  assessGroundFlatEscapeWindows,
   assessEscapeWindows,
   computeStairCompartmentationConfidence,
+  deriveGroundFlatInnerRoomPresent,
   deriveInnerRoomPresent,
   deriveUpperExternalEscapeViable,
 } from './classifier'
@@ -157,6 +159,29 @@ function computeEscapeFactors(answers: AnswerMap): RiskFactor[] {
     )
   }
 
+  const B2d = answers['B2d']?.value
+  if (B2 === 'yes_external_steel_stair' && B2d === 'no') {
+    factors.push(
+      f(
+        'RF-ESC-WEATHER',
+        'escape',
+        'normal',
+        'known_risk',
+        'The external steel escape stair may not be safe for wet-weather use because weather protection, slip resistance or condition is inadequate.'
+      )
+    )
+  } else if (B2 === 'yes_external_steel_stair' && B2d === 'unknown') {
+    factors.push(
+      f(
+        'RF-ESC-WEATHER-UNK',
+        'escape',
+        'low',
+        'unknown_risk',
+        'The wet-weather usability of the external steel escape stair has not been confirmed.'
+      )
+    )
+  }
+
   // RF-C02 — flat entrance opens directly into a habitable room, with no
   // protected lobby or hallway.
   if (answers['C14']?.value === 'habitable_room') {
@@ -226,6 +251,27 @@ function computeEscapeFactors(answers: AnswerMap): RiskFactor[] {
     )
   }
 
+  const B6 = answers['B6']?.value
+  const B4 = answers['B4']?.value
+  const B6a = answers['B6a']?.value
+  if (
+    B6 === 'two_level_maisonette' &&
+    B4 === 'above_4.5m' &&
+    B6a !== 'protected_internal_route' &&
+    B6a !== 'secondary_escape'
+  ) {
+    factors.push(
+      f(
+        'RF-LOFT-ESCAPE',
+        'escape',
+        'elevated',
+        B6a === 'not_sure' || B6a === undefined ? 'unknown_risk' : 'known_risk',
+        'The upper flat is a two-level maisonette / loft conversion above 4.5m without a ' +
+          'confirmed protected internal route or secondary means of escape.'
+      )
+    )
+  }
+
   // RF-B01 — travel distance from the upper flat's bedrooms to the exit.
   const B8 = answers['B8']?.value
   if (B8 === 'long') {
@@ -257,6 +303,59 @@ function computeEscapeFactors(answers: AnswerMap): RiskFactor[] {
         'normal',
         'unknown_risk',
         "Travel distance from the upper flat's bedrooms to the exit has not been estimated."
+      )
+    )
+  }
+
+  return factors
+}
+
+function computeGroundFlatEscapeFactors(answers: AnswerMap): RiskFactor[] {
+  const factors: RiskFactor[] = []
+  const B1 = answers['B1']?.value
+  const B3 = answers['B3']?.value
+
+  if (B1 === 'separate' || B3 === 'yes') return factors
+  if (B3 !== 'no') return factors
+
+  const escapeWindows = assessGroundFlatEscapeWindows(answers)
+  const innerRoom = deriveGroundFlatInnerRoomPresent(answers)
+  const bed1Qualifies = escapeWindows.bedroom_1 === 'qualifies'
+  const bed2Qualifies = escapeWindows.bedroom_2 === 'qualifies'
+  const anyBedQualifies = bed1Qualifies || bed2Qualifies
+
+  if (!anyBedQualifies) {
+    const anyBedUnknown =
+      escapeWindows.bedroom_1 === 'unknown' || escapeWindows.bedroom_2 === 'unknown'
+    factors.push(
+      f(
+        'RF-GF-C01',
+        'escape',
+        'elevated',
+        anyBedUnknown ? 'unknown_risk' : 'known_risk',
+        'The ground-floor flat has no rear exit and no qualifying bedroom escape window recorded.'
+      )
+    )
+  }
+
+  if (innerRoom === 'yes') {
+    factors.push(
+      f(
+        'RF-GF-C03',
+        'escape',
+        'normal',
+        'known_risk',
+        'At least one ground-floor bedroom is an inner room — only accessible by passing through another habitable room.'
+      )
+    )
+  } else if (innerRoom === 'unknown') {
+    factors.push(
+      f(
+        'RF-GF-C03-UNK',
+        'escape',
+        'normal',
+        'unknown_risk',
+        'Whether the ground-floor flat has a bedroom inner-room condition has not been confirmed.'
       )
     )
   }
@@ -1307,7 +1406,7 @@ export function computeRisk(answers: AnswerMap, classification: BuildingClassifi
   const sharedRoute = sharedHall && answers['F6a']?.value !== 'no'
 
   const domainFactors: Record<RiskDomain, RiskFactor[]> = {
-    escape: computeEscapeFactors(answers),
+    escape: [...computeEscapeFactors(answers), ...computeGroundFlatEscapeFactors(answers)],
     doors: computeDoorFactors(answers, sharedHall, sharedRoute),
     detection: computeDetectionFactors(answers, sharedHall),
     compartmentation: computeCompartmentationFactors(answers, sharedHall),

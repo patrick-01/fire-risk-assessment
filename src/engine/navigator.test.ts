@@ -189,6 +189,21 @@ describe('shouldShowQuestion', () => {
     const answersWithC1Yes: AnswerMap = { C1: a('yes') }
     expect(shouldShowQuestion(C2, answersWithC1Yes)).toBe(true)
   })
+
+  it('shows ground-flat escape questions only when the ground flat has no rear exit in a shared-hall building', () => {
+    const GF_C0 = QUESTION_MAP['GF_C0']
+
+    expect(shouldShowQuestion(GF_C0, { B1: a('communal'), B3: a('no') })).toBe(true)
+    expect(shouldShowQuestion(GF_C0, { B1: a('communal'), B3: a('yes') })).toBe(false)
+    expect(shouldShowQuestion(GF_C0, { B1: a('separate'), B3: a('no') })).toBe(false)
+  })
+
+  it('shows the loft escape follow-up only for a two-level upper flat', () => {
+    const B6a = QUESTION_MAP['B6a']
+
+    expect(shouldShowQuestion(B6a, { B6: a('two_level_maisonette') })).toBe(true)
+    expect(shouldShowQuestion(B6a, { B6: a('single_storey') })).toBe(false)
+  })
 })
 
 // ---------------------------------------------------------------------------

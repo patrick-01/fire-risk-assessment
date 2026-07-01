@@ -153,6 +153,63 @@ export interface Assessment {
    */
   classification: BuildingClassification
   report_generated_at: string | null
+  report_metadata?: ReportMetadata
+}
+
+// ---------------------------------------------------------------------------
+// Fire Safety Inspection Report metadata
+// ---------------------------------------------------------------------------
+
+export type InspectionType = 'initial' | '12_month_review' | 'follow_up' | 'post_works_review'
+
+export type ReportSource = 'app' | 'google_form' | 'imported_json'
+
+export type RemediationStatus =
+  | 'outstanding'
+  | 'in_progress'
+  | 'complete'
+  | 'not_applicable'
+  | 'superseded'
+
+export interface RemediationTracking {
+  status: RemediationStatus
+  targetDate: string | null
+  completedDate: string | null
+  evidenceNotes: string
+}
+
+export interface InspectionReviewHistoryEntry {
+  inspectionDate: string
+  inspectionType: InspectionType
+  assessor: string
+  overallRisk: RiskSeverity | 'unknown'
+  keyOutstandingActions: string
+  nextReviewDue: string
+}
+
+export interface ReportMetadata {
+  inspectionType: InspectionType
+  previousInspectionDate: string | null
+  inspectionDate: string
+  nextReviewDue: string
+  reviewCycleMonths: number
+  source: ReportSource
+  assessorName: string
+  assessorEmail: string
+  assessorRole: string
+  organisation: string
+  responsiblePerson: string
+  folderTarget: string | null
+  storagePath: string | null
+  reportVersion: string
+  rulesVersion: string
+  appVersion: string
+  assessorCompetenceStatement: string
+  declaration: string
+  signature: string
+  dateSigned: string | null
+  remediationTracking: Record<string, RemediationTracking>
+  reviewHistory: InspectionReviewHistoryEntry[]
 }
 
 // ===========================================================================
@@ -215,6 +272,8 @@ export interface BuildingClassification {
   hmo: HmoClassification
   section_257: boolean
   case_study_d10: 'applicable' | 'not_applicable' | 'unknown'
+  case_study_d11: 'applicable' | 'not_applicable' | 'unknown'
+  effective_storeys: 'two_storey' | 'three_storey' | 'unknown'
   general_lacors_risk_guidance: 'applicable' | 'not_applicable' | 'unknown'
   /** Whether the Fire Safety Order common-parts duty bites — mirrors common_parts.exists. */
   fso_common_parts: boolean | 'unknown'
