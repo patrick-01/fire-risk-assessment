@@ -115,4 +115,19 @@ describe('buildInspectionReportModel', () => {
       evidence_notes: 'Electrician booked',
     })
   })
+
+  it('does not copy old text-report formatting into formal PDF sections', () => {
+    const model = buildInspectionReportModel(buildReport())
+    const formalText = [
+      ...model.area_assessments.flatMap((section) => section.body),
+      ...model.known_risks,
+      ...model.potential_risks,
+      ...model.unknown_risks,
+      ...model.evidence_and_assumptions,
+    ].join('\n')
+
+    expect(formalText).not.toContain('Overall for this area:')
+    expect(formalText).not.toMatch(/^- \[[^\]]+\]/m)
+    expect(formalText).not.toMatch(/^Further investigation required:/m)
+  })
 })

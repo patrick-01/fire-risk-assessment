@@ -8,6 +8,7 @@ import type {
   RemediationStatus,
   ResolvedRemedy,
   RiskDomain,
+  RiskFactor,
   RiskKnowledge,
   RiskSeverity,
 } from '../../state/AppState'
@@ -152,15 +153,6 @@ function inspectionId(report: ReportV2): string {
   return `inspection-${postcode}-${report.report_metadata.inspectionDate || dateOnly(report.generated_at)}`
 }
 
-function sectionBody(report: ReportV2, title: string): string[] {
-  const found = report.sections.find((section) => section.title === title)
-  if (!found) return []
-  return found.body
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-}
-
 function actionItem(report: ReportV2, remedy: ResolvedRemedy): PdfActionItem {
   const tracking = report.report_metadata.remediationTracking[remedy.rule_id]
   const status: RemediationStatus = tracking?.status ?? 'outstanding'
@@ -227,17 +219,114 @@ function riskRows(report: ReportV2): PdfRiskAreaRow[] {
   })
 }
 
-function areaAssessments(report: ReportV2): PdfTextSection[] {
-  const titles = [
-    'Common parts assessment',
-    'Ground-floor flat assessment',
-    'Upper-floor flat assessment',
-    'External escape route assessment',
-    'Door and route protection assessment',
-    'Stair compartmentation assessment',
-    'Fire detection strategy',
+function riskFactorLine(factor: RiskFactor): string {
+  return `${SEVERITY_LABELS[factor.severity]} ${KNOWLEDGE_LABELS[factor.knowledge].toLowerCase()} risk: ${factor.description}`
+}
+
+function factorDescriptions(factors: RiskFactor[], emptyText: string): string[] {
+  return factors.length === 0 ? [emptyText] : factors.map(riskFactorLine)
+}
+
+function domainSummary(report: ReportV2, domain: RiskDomain, factorFilter?: (factor: RiskFactor) => boolean): string[] {
+  const domainRisk = report.risk.domains[domain]
+  const factors = report.risk.risk_factors.filter((factor) => factor.domain === domain && (!factorFilter || factorFilter(factor)))
+  return [
+    `Status: ${SEVERITY_LABELS[domainRisk.severity]} severity; ${KNOWLEDGE_LABELS[domainRisk.knowledge].toLowerCase()} knowledge state.`,
+    ...factorDescriptions(factors, 'No specific risk factors recorded for this area.'),
   ]
-  return titles.map((title) => ({ title, body: sectionBody(report, title) }))
+}
+
+function areaAssessments(report: ReportV2): PdfTextSection[] {
+  const c = report.classification
+  return [
+    {
+      title: 'Common parts',
+      body: [
+        `Entrance configuration: ${ENTRANCE_LABELS[c.entrance_configuration]}.`,
+        `Fire Safety Order common-parts duty: ${
+          c.fso_common_parts === 'unknown' ? 'not yet confirmed' : c.fso_common_parts ? 'applies' : 'does not apply'
+        }.`,
+        ...domainSummary(report, 'common_parts'),
+      ],
+    },
+    {
+      title: 'Ground-floor flat',
+      body: domainSummary(report, 'escape', (factor) => factor.id.includes('-GF-')),
+    },
+    {
+      title: 'Upper-floor flat',
+      body: domainSummary(report, 'escape', (factor) => !factor.id.includes('-GF-')),
+    },
+    {
+      title: 'External escape route',
+      body: factorDescriptions(
+        report.risk.risk_factors.filter((factor) => factor.id.includes('ESC') || factor.id.includes('LOFT-ESCAPE')),
+        'No independent external escape route risk factors recorded.'
+      ),
+    },
+    {
+      title: 'Door and route protection',
+      body: domainSummary(report, 'doors'),
+    },
+    {
+      title: 'Stair compartmentation',
+      body: domainSummary(report, 'compartmentation'),
+    },
+    {
+      title: 'Fire detection strategy',
+      body: domainSummary(report, 'detection'),
+    },
+  ]
+}
+
+function scopeAndLimitations(report: ReportV2): string[] {
+  const lacors =
+    report.legal_framework.lacors_guidance_use === 'direct_benchmark'
+      ? 'LACORS is used as a direct benchmark for the applicable converted-building case-study guidance.'
+      : report.legal_framework.lacors_guidance_use === 'risk_reference'
+        ? 'LACORS is used as a risk reference, not as a direct compliance benchmark.'
+        : 'The role of LACORS guidance is not fully established from the recorded facts.'
+  return [
+    'The assessment covers the whole two-flat building and separates findings for common parts, the ground-floor flat, the upper-floor flat, and building-wide duties.',
+    lacors,
+    'The report records inspection findings and recommended actions. It is not a statutory compliance certificate or confirmation from the local authority.',
+  ]
+}
+
+function knownRisks(report: ReportV2): string[] {
+  return factorDescriptions(
+    report.risk.risk_factors.filter((factor) => factor.knowledge === 'known_risk'),
+    'No known risks were identified.'
+  )
+}
+
+function potentialRisks(report: ReportV2): string[] {
+  return factorDescriptions(
+    report.risk.risk_factors.filter((factor) => factor.knowledge === 'potential_risk'),
+    'No potential risks were identified.'
+  )
+}
+
+function unknownRisks(report: ReportV2): string[] {
+  const factors = report.risk.risk_factors
+    .filter((factor) => factor.knowledge === 'unknown_risk')
+    .map((factor) => `${SEVERITY_LABELS[factor.severity]} unverified risk: ${factor.description}`)
+  const investigations = report.remedies.further_investigation.map(
+    (remedy) => `${remedy.title}: ${remedy.text} (${SCOPE_LABELS[remedy.applies_to]})`
+  )
+  const items = [...factors, ...investigations]
+  return items.length > 0 ? items : ['No unknown risks or further-investigation items were identified.']
+}
+
+function evidenceAndAssumptions(report: ReportV2): string[] {
+  const items: string[] = []
+  for (const reason of report.classification.unresolved_reasons) {
+    items.push(`Classification item requiring confirmation: ${reason}`)
+  }
+  for (const remedy of report.remedies.further_investigation) {
+    items.push(`Verification required before works are specified: ${remedy.title}.`)
+  }
+  return items.length > 0 ? items : ['No outstanding assumptions or evidence gaps were recorded.']
 }
 
 function reviewHistory(report: ReportV2): PdfReviewHistoryRow[] {
@@ -301,7 +390,7 @@ export function buildInspectionReportModel(report: ReportV2): InspectionReportMo
       storage_path: optional(metadata.storagePath),
     },
     assessor_competence_statement: metadata.assessorCompetenceStatement,
-    scope_and_limitations: sectionBody(report, 'Assessment scope and limitations'),
+    scope_and_limitations: scopeAndLimitations(report),
     classification: {
       source: report.classification,
       rows: classificationRows(report),
@@ -317,15 +406,15 @@ export function buildInspectionReportModel(report: ReportV2): InspectionReportMo
       areas: riskRows(report),
     },
     area_assessments: areaAssessments(report),
-    known_risks: sectionBody(report, 'Known risks'),
-    potential_risks: sectionBody(report, 'Potential risks'),
-    unknown_risks: sectionBody(report, 'Unknown risks / further investigation'),
+    known_risks: knownRisks(report),
+    potential_risks: potentialRisks(report),
+    unknown_risks: unknownRisks(report),
     legal_requirements: sortedActions(report, report.remedies.legal_requirements),
     recommendations: sortedActions(report, report.remedies.recommendations),
     further_investigation: sortedActions(report, report.remedies.further_investigation),
     advisory_items: sortedActions(report, report.remedies.advisory),
     remediation_schedule: sortedActions(report, report.remedies.remediation_schedule),
-    evidence_and_assumptions: sectionBody(report, 'Evidence and assumptions'),
+    evidence_and_assumptions: evidenceAndAssumptions(report),
     review_history: reviewHistory(report),
     declaration: {
       statement: metadata.declaration || DEFAULT_DECLARATION,

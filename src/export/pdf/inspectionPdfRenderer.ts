@@ -189,6 +189,40 @@ class PdfWriter {
     this.move(8)
   }
 
+  remediationTable(actions: PdfActionItem[]) {
+    const widths = [54, 126, 64, 52, 78, 56, 67]
+    this.tableHeader(['Ref', 'Action', 'Class', 'Priority', 'Applies to', 'Status', 'Target'], widths)
+    actions.forEach((action) => {
+      this.tableRow(
+        [
+          action.action_reference,
+          action.action_title,
+          action.legal_classification,
+          action.priority,
+          action.applies_to,
+          action.status,
+          action.target_date || '-',
+        ],
+        widths
+      )
+      if (action.completed_date || action.evidence_notes) {
+        this.tableRow(
+          [
+            '',
+            `Evidence / notes: ${action.evidence_notes || '-'}${action.completed_date ? ` Completed: ${action.completed_date}` : ''}`,
+            '',
+            '',
+            '',
+            '',
+            '',
+          ],
+          widths
+        )
+      }
+    })
+    this.move(8)
+  }
+
   actionBlock(action: PdfActionItem, index?: number) {
     const title = `${index ? `${index}. ` : ''}${action.action_reference} - ${action.action_title}`
     const rows: PdfFieldRow[] = [
@@ -376,7 +410,7 @@ export async function generateInspectionReportPdf(model: InspectionReportModel):
   if (model.remediation_schedule.length === 0) {
     writer.text('No remediation items were identified.')
   } else {
-    model.remediation_schedule.forEach((action, index) => writer.actionBlock(action, index + 1))
+    writer.remediationTable(model.remediation_schedule)
   }
 
   writer.heading('Evidence and Assumptions')
